@@ -307,12 +307,32 @@ The most effective way to research a topic is an **iterative loop** of searching
 
 #### Step 1: Cast a Wide Net with FTS
 
-Start with full-text search to find relevant issues. Try multiple query variations.
+The database uses **SQLite FTS5** for full-text indexing. This is keyword-based search, not semantic—so **try multiple phrasings and synonyms**.
+
+**Don't assume how concepts are discussed.** People use different terminology:
+- "organization identity" vs "org context" vs "tenant" vs "acting organization"
+- "backend services" vs "system-to-system" vs "B2B" vs "client credentials"
+- "authorization" vs "auth" vs "OAuth" vs "access control"
 
 ```bash
+# Try multiple variations of the same concept
 bun run jira:search fts "organizational identity SMART"
-bun run jira:search fts "backend services organization"
+bun run jira:search fts "organization context backend"
 bun run jira:search fts "B2B authorization client"
+bun run jira:search fts "tenant client_id"
+bun run jira:search fts "acting organization OAuth"
+```
+
+FTS5 supports boolean operators and prefix matching:
+```bash
+# AND/OR/NOT
+bun run jira:search fts "organization AND backend NOT patient"
+
+# Prefix matching (finds organize, organization, organizational...)
+bun run jira:search fts "organiz*"
+
+# Phrase search
+bun run jira:search fts '"client credentials"'
 ```
 
 Or via SQL for more control:

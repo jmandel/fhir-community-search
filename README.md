@@ -9,67 +9,74 @@ Local full-text search tools for FHIR community knowledge sources.
 | **Jira** | `jira/` | HL7 FHIR specification issues (jira.hl7.org) - 48k+ issues |
 | **Zulip** | `zulip/` | FHIR community chat (chat.fhir.org) - 1M+ messages |
 
-Each subfolder contains:
-- `download.ts` - Data downloader
-- `search.ts` - Search CLI
-- `data.db` - SQLite database with FTS5 index
-- `README.md` - Schema, commands, and query examples
+Each source has its own README with:
+- Full database schema
+- CLI commands and options
+- SQL query examples
+- Search strategies and best practices
 
-## Recommended Workflow: Search → Snapshot → Explore
+## For LLM Orchestrators: Delegating Research
 
-The most effective way to research a topic is an **iterative loop**:
+When researching FHIR topics, **delegate searches** to explore each data source (ideally in parallel). Each search task needs:
 
-### 1. Search broadly with FTS
-```bash
-bun run jira:search fts "organizational identity SMART"
-bun run zulip:search fts "backend services organization"
+1. **The high-level research question** (what you're trying to learn)
+2. **Instructions to read the relevant README first** before writing queries
+
+### Example Task Instructions
+
+**For Jira research:**
+```
+Research question: [YOUR QUESTION HERE]
+
+Before searching:
+1. Read jira/README.md thoroughly to understand the schema, CLI commands, and search strategies
+2. Note the "Search → Snapshot → Explore" methodology
+
+Then search iteratively, trying multiple phrasings. Take snapshots of promising issues to read full context including comments. Report back findings relevant to the research question.
 ```
 
-### 2. Snapshot promising results
-Don't stop at search snippets—get full context:
-```bash
-# Jira: full issue with all comments
-bun run jira:search snapshot FHIR-45249
+**For Zulip research:**
+```
+Research question: [YOUR QUESTION HERE]
 
-# Zulip: full conversation thread  
-bun run zulip:search snapshot smart "organization identity"
+Before searching:
+1. Read zulip/README.md thoroughly to understand the schema, CLI commands, and search strategies  
+2. Note the key streams and expert users to watch for
+
+Then search iteratively, trying multiple phrasings. Snapshot promising threads to read full conversations. Report back findings relevant to the research question.
 ```
 
-### 3. Follow connections and iterate
-- Note issue keys or topics mentioned in snapshots
-- Search for referenced issues/discussions
-- Snapshot those, repeat until you have the full picture
+### Why This Approach?
 
-```bash
-# Find issues referencing the one you read
-bun run jira:search sql "SELECT key, summary FROM issues WHERE description LIKE '%FHIR-45249%'"
+- **The READMEs are comprehensive** - they contain schema details, FTS5 query syntax, useful SQL patterns, and domain-specific guidance (key experts, status values, etc.)
+- **Read once, query many** - the searcher reads the README then executes many queries informed by that knowledge
+- **Parallel research** - Jira and Zulip searches can happen simultaneously
+- **Clean synthesis** - when presenting findings to the user, focus on the substance (what was learned) not the mechanics (which databases were queried)
 
-# Find Zulip discussions mentioning a Jira issue
-bun run zulip:search fts "FHIR-45249"
-```
+### Research Workflow
 
-## Quick Start
+1. **Spawn parallel searches** - one for Jira, one for Zulip
+2. **Each searcher reads its README** to learn the tools
+3. **Iterative search** - try multiple query phrasings
+4. **Snapshot promising results** - get full issue/thread context
+5. **Follow connections** - referenced issues, related discussions
+6. **Synthesize findings** - combine results into a coherent answer for the user (no need to mention the underlying search mechanics)
+
+## Quick Reference (for humans)
 
 ```bash
 # Jira
-bun run jira:search fts "Patient identifier"
-bun run jira:search snapshot FHIR-43499
+bun run jira:search fts "your query"
+bun run jira:search snapshot FHIR-XXXXX
 bun run jira:search --help
 
-# Zulip  
-bun run zulip:search fts "SMART organization"
-bun run zulip:search snapshot smart "app launch"
+# Zulip
+bun run zulip:search fts "your query"
+bun run zulip:search snapshot stream "topic"
 bun run zulip:search --help
 ```
 
-## Common Options
-
-All search CLIs support:
-- `--limit <n>` - Max results (default: 20)
-- `--json` - JSON output
-- `--help` - Show commands
-
 ## See Also
 
-- [jira/README.md](jira/README.md) - Jira schema, queries, workflow
-- [zulip/README.md](zulip/README.md) - Zulip schema, queries, key streams
+- [jira/README.md](jira/README.md) - Complete Jira search documentation
+- [zulip/README.md](zulip/README.md) - Complete Zulip search documentation
