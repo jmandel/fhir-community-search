@@ -2,6 +2,23 @@
 
 A high-performance local search system for HL7 FHIR specification issues from jira.hl7.org.
 
+## For LLM Agents: How to Use This Tool
+
+**Step 1: Search** - Use FTS to find issues. Try multiple keyword variations (FTS5 is keyword-based, not semantic).
+```bash
+bun run jira:search fts "organization identity"
+bun run jira:search fts "org context backend"      # try synonyms!
+bun run jira:search fts "tenant client credentials" # try related terms!
+```
+
+**Step 2: Snapshot** - For any promising issue, get the FULL content:
+```bash
+bun run jira:search snapshot FHIR-45249
+```
+This outputs a complete markdown document with ALL fields, the full description, resolution details, and EVERY comment. This is where the real insights are.
+
+**Step 3: Follow connections** - Look for referenced issues in the snapshot, then snapshot those too.
+
 ## Quick Start
 
 ```bash
@@ -10,9 +27,18 @@ bun run jira:download --cookie "JSESSIONID=xxx; seraph.rememberme.cookie=xxx"
 
 # 2. Search issues
 bun run jira:search fts "Patient identifier"
-bun run jira:search get FHIR-43499
+bun run jira:search snapshot FHIR-43499    # <-- FULL issue with all comments!
 bun run jira:search stats
 ```
+
+## Key Commands
+
+| Command | Purpose |
+|---------|--------|
+| `fts "query"` | Full-text search to find relevant issues |
+| `snapshot FHIR-XXXXX` | **Get complete issue snapshot** - all fields, full description, resolution, and ALL comments. Use this after finding issues via FTS. |
+| `get FHIR-XXXXX` | Brief issue view (truncated comments) |
+| `stats` | Database statistics |
 
 ## Getting Session Cookies
 

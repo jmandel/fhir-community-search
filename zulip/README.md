@@ -2,6 +2,23 @@
 
 A high-performance local search system for [chat.fhir.org](https://chat.fhir.org) - the official FHIR community Zulip chat with over 1 million messages.
 
+## For LLM Agents: How to Use This Tool
+
+**Step 1: Search** - Use FTS to find discussions. Try multiple keyword variations (FTS5 is keyword-based, not semantic).
+```bash
+bun run zulip:search fts "organization identity"
+bun run zulip:search fts "org context backend"      # try synonyms!
+bun run zulip:search fts "tenant client credentials" # try related terms!
+```
+
+**Step 2: Snapshot** - For any promising thread, get the FULL conversation:
+```bash
+bun run zulip:search snapshot smart "Identifying Organization"
+```
+This outputs the complete thread with ALL messages and full content. This is where the real insights are - expert opinions, debates, proposed solutions.
+
+**Step 3: Follow connections** - Note Jira issues or other topics mentioned, then search/snapshot those too.
+
 ## Quick Start
 
 ```bash
@@ -10,8 +27,19 @@ bun run zulip:download --email your@email.com --api-key YOUR_API_KEY
 
 # 2. Search messages
 bun run zulip:search fts "Patient identifier"
+bun run zulip:search snapshot implementers "Patient identifier"  # <-- FULL thread!
 bun run zulip:search stats
 ```
+
+## Key Commands
+
+| Command | Purpose |
+|---------|--------|
+| `fts "query"` | Full-text search to find relevant discussions |
+| `snapshot <stream> "<topic>"` | **Get complete thread snapshot** - all messages with full content. Use this after finding topics via FTS. |
+| `thread <stream> "<topic>"` | Brief thread view (limited messages) |
+| `topics <stream>` | List topics in a stream |
+| `stats` | Database statistics |
 
 ## Getting API Credentials
 

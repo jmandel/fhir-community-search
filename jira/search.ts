@@ -199,7 +199,57 @@ function getIssue(key: string, json: boolean, fullSnapshot = false): void {
 
   if (json) {
     console.log(JSON.stringify({ ...issue, comments }, null, 2));
+  } else if (fullSnapshot) {
+    // Full markdown snapshot with all fields
+    console.log(`# ${issue.key}: ${issue.summary}\n`);
+    console.log(`**URL:** https://jira.hl7.org/browse/${issue.key}\n`);
+    
+    console.log(`## Metadata\n`);
+    console.log(`| Field | Value |`);
+    console.log(`|-------|-------|`);
+    console.log(`| **Status** | ${issue.status} |`);
+    console.log(`| **Resolution** | ${issue.resolution || "Unresolved"} |`);
+    console.log(`| **Priority** | ${issue.priority} |`);
+    console.log(`| **Type** | ${issue.issue_type} |`);
+    console.log(`| **Reporter** | ${issue.reporter_name} (${issue.reporter_username || "n/a"}) |`);
+    console.log(`| **Assignee** | ${issue.assignee_name || "Unassigned"} |`);
+    console.log(`| **Specification** | ${issue.specification || "N/A"} |`);
+    console.log(`| **Resource/Artifact** | ${issue.related_artifact || "N/A"} |`);
+    console.log(`| **Raised in Version** | ${issue.raised_in_version || "N/A"} |`);
+    console.log(`| **Work Group** | ${issue.work_group || "N/A"} |`);
+    console.log(`| **Created** | ${issue.created_at} |`);
+    console.log(`| **Updated** | ${issue.updated_at} |`);
+    if (issue.resolved_at) console.log(`| **Resolved** | ${issue.resolved_at} |`);
+    if (issue.change_impact) console.log(`| **Change Impact** | ${issue.change_impact} |`);
+    if (issue.change_category) console.log(`| **Change Category** | ${issue.change_category} |`);
+    if (issue.applied_for_version) console.log(`| **Applied for Version** | ${issue.applied_for_version} |`);
+    if (issue.resolution_vote) console.log(`| **Vote** | ${issue.resolution_vote} |`);
+    if (issue.vote_date) console.log(`| **Vote Date** | ${issue.vote_date} |`);
+    if (issue.related_url) console.log(`| **Related URL** | ${issue.related_url} |`);
+    if (issue.related_pages) console.log(`| **Related Pages** | ${issue.related_pages} |`);
+    if (issue.related_sections) console.log(`| **Related Sections** | ${issue.related_sections} |`);
+    if (issue.labels) console.log(`| **Labels** | ${issue.labels} |`);
+    if (issue.components) console.log(`| **Components** | ${issue.components} |`);
+    console.log(`| **Comment Count** | ${issue.comment_count || comments.length} |`);
+    
+    console.log(`\n## Description\n`);
+    console.log(issue.description || "*No description provided*");
+    
+    if (issue.resolution_description) {
+      console.log(`\n## Resolution\n`);
+      console.log(issue.resolution_description);
+    }
+    
+    if (comments.length > 0) {
+      console.log(`\n## Comments (${comments.length})\n`);
+      for (const c of comments as any[]) {
+        console.log(`### [${c.created_at}] ${c.author_name}\n`);
+        console.log(c.body || "*empty*");
+        console.log("");
+      }
+    }
   } else {
+    // Brief view (get command)
     console.log(`\n${"=".repeat(70)}`);
     console.log(`${issue.key}: ${issue.summary}`);
     console.log(`${"=".repeat(70)}`);
@@ -227,31 +277,6 @@ function getIssue(key: string, json: boolean, fullSnapshot = false): void {
       console.log(`Vote: ${issue.resolution_vote}`);
     }
     
-    if (issue.applied_for_version) {
-      console.log(`Applied for version: ${issue.applied_for_version}`);
-    }
-    
-    if (issue.vote_date) {
-      console.log(`Vote date: ${issue.vote_date}`);
-    }
-    
-    if (issue.related_url) {
-      console.log(`\nRelated URL: ${issue.related_url}`);
-    }
-    if (issue.related_pages) {
-      console.log(`Related pages: ${issue.related_pages}`);
-    }
-    if (issue.related_sections) {
-      console.log(`Related sections: ${issue.related_sections}`);
-    }
-    
-    if (issue.labels) {
-      console.log(`\nLabels: ${issue.labels}`);
-    }
-    if (issue.components) {
-      console.log(`Components: ${issue.components}`);
-    }
-    
     console.log(`\n--- Description ---`);
     console.log(issue.description || "No description");
     
@@ -264,13 +289,8 @@ function getIssue(key: string, json: boolean, fullSnapshot = false): void {
       console.log(`\n--- Comments (${comments.length}) ---`);
       for (const c of comments as any[]) {
         console.log(`\n[${c.created_at}] ${c.author_name}:`);
-        // For snapshot mode, show full comments; otherwise truncate
-        if (fullSnapshot) {
-          console.log(c.body || "");
-        } else {
-          console.log(c.body?.slice(0, 500) || "");
-          if (c.body?.length > 500) console.log("...");
-        }
+        console.log(c.body?.slice(0, 500) || "");
+        if (c.body?.length > 500) console.log("...");
       }
     }
   }
