@@ -80,3 +80,37 @@ bun run zulip:search --help
 
 - [jira/README.md](jira/README.md) - Complete Jira search documentation
 - [zulip/README.md](zulip/README.md) - Complete Zulip search documentation
+
+---
+
+## Developer Notes
+
+### Creating a New Release
+
+Releases bundle the pre-indexed SQLite databases for easy distribution.
+
+```bash
+# Compress databases (zstd gives excellent compression on SQLite)
+zstd -T0 -9 jira/data.db -o jira-data.db.zst
+zstd -T0 -9 zulip/data.db -o zulip-data.db.zst
+
+# Create release with GitHub CLI
+export GH_TOKEN="your_github_pat"
+gh release create v2025.01 \
+  jira-data.db.zst \
+  zulip-data.db.zst \
+  --title "FHIR Community Search Data - January 2025" \
+  --notes "Pre-indexed databases. See README for setup."
+```
+
+### Updating Data
+
+```bash
+# Refresh Jira issues (requires session cookies)
+bun run jira:download --cookie "JSESSIONID=xxx; seraph.rememberme.cookie=xxx"
+
+# Refresh Zulip messages (requires API key)
+bun run zulip:download --email you@example.com --api-key YOUR_KEY
+```
+
+After updating, create a new release with fresh database snapshots.
