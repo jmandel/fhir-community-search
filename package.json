@@ -1,0 +1,10 @@
+{
+  "name": "fhir-community-search",
+  "type": "module",
+  "scripts": {
+    "jira:download": "bun run jira/download.ts",
+    "jira:search": "bun run jira/search.ts",
+    "zulip:download": "bun run zulip/download.ts",
+    "zulip:search": "bun run zulip/search.ts"
+  }
+}
