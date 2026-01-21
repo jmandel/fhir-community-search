@@ -13,6 +13,7 @@
  *   breaking           Find breaking (non-compatible) changes
  *   status <status>    Find issues by status
  *   get <key>          Get full details for a specific issue
+ *   snapshot <key>     Get complete issue snapshot (all fields, comments, metadata)
  *   stats              Show database statistics
  *   sql <query>        Execute raw SQL query
  */
@@ -178,7 +179,7 @@ function searchStatus(status: string, limit: number, json: boolean): void {
   db.close();
 }
 
-function getIssue(key: string, json: boolean): void {
+function getIssue(key: string, json: boolean, fullSnapshot = false): void {
   const db = getDb();
   
   const issue = db.query("SELECT * FROM issues WHERE key = $key").get({ $key: key }) as any;
@@ -190,7 +191,7 @@ function getIssue(key: string, json: boolean): void {
   }
 
   const comments = db.query(`
-    SELECT author_name, body, created_at 
+    SELECT author_name, author_username, body, created_at 
     FROM comments 
     WHERE issue_key = $key 
     ORDER BY created_at
@@ -202,6 +203,7 @@ function getIssue(key: string, json: boolean): void {
     console.log(`\n${"=".repeat(70)}`);
     console.log(`${issue.key}: ${issue.summary}`);
     console.log(`${"=".repeat(70)}`);
+    console.log(`URL: https://jira.hl7.org/browse/${issue.key}`);
     console.log(`Status: ${issue.status}`);
     console.log(`Resolution: ${issue.resolution || "Unresolved"}`);
     console.log(`Priority: ${issue.priority}`);
@@ -225,6 +227,31 @@ function getIssue(key: string, json: boolean): void {
       console.log(`Vote: ${issue.resolution_vote}`);
     }
     
+    if (issue.applied_for_version) {
+      console.log(`Applied for version: ${issue.applied_for_version}`);
+    }
+    
+    if (issue.vote_date) {
+      console.log(`Vote date: ${issue.vote_date}`);
+    }
+    
+    if (issue.related_url) {
+      console.log(`\nRelated URL: ${issue.related_url}`);
+    }
+    if (issue.related_pages) {
+      console.log(`Related pages: ${issue.related_pages}`);
+    }
+    if (issue.related_sections) {
+      console.log(`Related sections: ${issue.related_sections}`);
+    }
+    
+    if (issue.labels) {
+      console.log(`\nLabels: ${issue.labels}`);
+    }
+    if (issue.components) {
+      console.log(`Components: ${issue.components}`);
+    }
+    
     console.log(`\n--- Description ---`);
     console.log(issue.description || "No description");
     
@@ -237,8 +264,13 @@ function getIssue(key: string, json: boolean): void {
       console.log(`\n--- Comments (${comments.length}) ---`);
       for (const c of comments as any[]) {
         console.log(`\n[${c.created_at}] ${c.author_name}:`);
-        console.log(c.body?.slice(0, 500) || "");
-        if (c.body?.length > 500) console.log("...");
+        // For snapshot mode, show full comments; otherwise truncate
+        if (fullSnapshot) {
+          console.log(c.body || "");
+        } else {
+          console.log(c.body?.slice(0, 500) || "");
+          if (c.body?.length > 500) console.log("...");
+        }
       }
     }
   }
@@ -356,7 +388,9 @@ Commands:
   version <ver>       Find issues for a specific FHIR version  
   breaking [version]  Find breaking (non-compatible) changes
   status <status>     Find issues by workflow status
-  get <key>           Get full details for a specific issue (e.g., FHIR-43499)
+  get <key>           Get details for a specific issue (e.g., FHIR-43499)
+  snapshot <key>      Get COMPLETE issue snapshot - all fields, full comments,
+                      metadata. Use after FTS to get full context for analysis.
   stats               Show database statistics
   sql <query>         Execute raw SQL query
 
@@ -365,6 +399,11 @@ Options:
   --json              Output as JSON
   --help              Show this help
 
+Recommended Workflow:
+  1. Search:   bun run jira:search fts "your topic"
+  2. Snapshot: bun run jira:search snapshot FHIR-XXXXX
+  3. Analyze the full issue context, then search for related issues
+
 Examples:
   bun run src/search.ts fts "Patient identifier"
   bun run src/search.ts resource Patient --limit 50
@@ -372,6 +411,8 @@ Examples:
   bun run src/search.ts breaking R5
   bun run src/search.ts status Triaged
   bun run src/search.ts get FHIR-43499
+  bun run src/search.ts snapshot FHIR-43499   # Full issue with all comments
+  bun run src/search.ts snapshot FHIR-43499 --json
   bun run src/search.ts sql "SELECT key, summary FROM issues WHERE change_impact = 'Non-compatible' LIMIT 10"
 
 Environment:
@@ -429,7 +470,12 @@ async function main() {
       
     case "get":
       if (!arg) { console.error("Usage: get <key>"); return; }
-      getIssue(arg.toUpperCase(), json);
+      getIssue(arg.toUpperCase(), json, false);
+      break;
+      
+    case "snapshot":
+      if (!arg) { console.error("Usage: snapshot <key>"); return; }
+      getIssue(arg.toUpperCase(), json, true);
       break;
       
     case "stats":

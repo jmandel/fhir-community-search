@@ -361,7 +361,127 @@ LIMIT 10;
 
 ## Best Practices for LLM Agents
 
-### Iterative Search Pattern
+### Search → Snapshot → Explore Loop
+
+The most effective way to research a topic is an **iterative loop** of searching, snapshotting promising threads, and exploring connections. Chat discussions contain rich context—don't stop at search result snippets.
+
+#### Step 1: Cast a Wide Net with FTS
+
+Start with full-text search. Try multiple query variations to find relevant discussions.
+
+```bash
+bun run zulip:search fts "organizational identity SMART"
+bun run zulip:search fts "backend services organization" --stream smart
+bun run zulip:search fts "B2B authorization"
+```
+
+Group results by topic to find the most active discussions:
+```sql
+SELECT stream_name, topic, COUNT(*) as msgs
+FROM messages_fts fts
+JOIN messages m ON m.id = fts.rowid
+WHERE messages_fts MATCH 'organization AND (SMART OR backend OR B2B)'
+GROUP BY stream_name, topic
+ORDER BY msgs DESC
+LIMIT 15;
+```
+
+#### Step 2: Snapshot Promising Threads
+
+When you find a relevant topic, **take a full snapshot** to read the complete conversation. This is where you'll find nuanced discussion, disagreements, proposed solutions, and expert opinions.
+
+```bash
+bun run zulip:search snapshot smart "organization identity"
+bun run zulip:search snapshot implementers "backend services auth" --json
+```
+
+The snapshot includes:
+- All messages in chronological order
+- Full message content (not truncated)
+- Direct link to the thread on chat.fhir.org
+- Date range showing when the discussion happened
+
+#### Step 3: Follow the Threads
+
+After reading a snapshot, look for connections:
+
+```bash
+# Find other topics where key participants contributed
+bun run zulip:search user "Cooper Thompson" --limit 30
+
+# Search for terms/concepts mentioned in the discussion
+bun run zulip:search fts "FAST Security B2B extension"
+
+# Find discussions that reference Jira issues mentioned
+bun run zulip:search fts "FHIR-45249"
+
+# Explore related topics in the same stream
+bun run zulip:search topics smart --limit 50
+```
+
+#### Step 4: Iterate and Go Deeper
+
+Repeat the loop:
+1. Read snapshots carefully—look for expert opinions (Grahame Grieve, Josh Mandel, Lloyd McKenzie, etc.)
+2. Note Jira issues, GitHub links, or spec references mentioned
+3. Search for related discussions using new keywords you discovered
+4. Snapshot threads that reference or continue the conversation
+5. Cross-reference with Jira for formal specification issues
+
+#### Example Research Session
+
+```bash
+# Initial search
+$ bun run zulip:search fts "backend services organization identity"
+# Found discussions in #smart, #Security and Privacy...
+
+# Snapshot the most relevant thread
+$ bun run zulip:search snapshot smart "Identifying Organization"
+# Learned: Alex Kontur raised this for Da Vinci DTR/PAS
+# Josh Mandel suggested FAST Security IG approach
+# Cooper Thompson described "weak link" problem
+
+# Follow Cooper's other contributions
+$ bun run zulip:search user "Cooper Thompson" --limit 20
+# Found: "Authorization Tickets" thread
+
+# Snapshot that thread
+$ bun run zulip:search snapshot smart "Authorization Tickets"
+# Learned: Proposed solution using scoped tokens
+
+# Search for the solution approach
+$ bun run zulip:search fts "RFC 8693 token exchange"
+# Found more implementation discussions...
+
+# Cross-reference with Jira
+$ bun run jira:search fts "B2B authorization organization"
+```
+
+### Quick Reference Commands
+
+| Goal | Command |
+|------|---------|  
+| Broad search | `bun run zulip:search fts "your topic"` |
+| Search in stream | `fts "topic" --stream implementers` |
+| Full thread context | `bun run zulip:search snapshot stream "topic"` |
+| Find expert posts | `bun run zulip:search user "Grahame Grieve"` |
+| Browse stream topics | `bun run zulip:search topics smart` |
+| Recent activity | `bun run zulip:search recent 7` |
+
+### Key Experts to Watch For
+
+When reading snapshots, pay special attention to posts from:
+
+| User | Expertise |
+|------|-----------|  
+| Grahame Grieve | FHIR founder, core spec authority |
+| Lloyd McKenzie | HL7 CTO, FHIR co-chair |
+| Josh Mandel | SMART on FHIR, Bulk Data lead |
+| Cooper Thompson | Epic, security/auth implementations |
+| Brian Postlethwaite | .NET FHIR, FHIRPath |
+| Eric Haas | US Core, Argonaut |
+
+### Legacy: Iterative Search Pattern
 
 1. **Start with FTS** to find relevant discussions:
    ```sql
@@ -374,12 +494,9 @@ LIMIT 10;
    LIMIT 10;
    ```
 
-2. **Get full thread** for promising topics:
-   ```sql
-   SELECT sender_name, content, timestamp
-   FROM messages
-   WHERE stream_name = 'implementers' AND topic = 'found topic'
-   ORDER BY timestamp ASC;
+2. **Snapshot the thread** for promising topics:
+   ```bash
+   bun run zulip:search snapshot "stream" "topic name"
    ```
 
 3. **Find expert opinions** - look for responses from known experts:

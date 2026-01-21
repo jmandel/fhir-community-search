@@ -301,7 +301,101 @@ LIMIT 20;
 
 ## Best Practices for LLM Agents
 
-### Iterative Search Pattern
+### Search → Snapshot → Explore Loop
+
+The most effective way to research a topic is an **iterative loop** of searching, snapshotting promising results, and exploring connections. Don't stop at surface-level search results—take snapshots to understand full context.
+
+#### Step 1: Cast a Wide Net with FTS
+
+Start with full-text search to find relevant issues. Try multiple query variations.
+
+```bash
+bun run jira:search fts "organizational identity SMART"
+bun run jira:search fts "backend services organization"
+bun run jira:search fts "B2B authorization client"
+```
+
+Or via SQL for more control:
+```sql
+SELECT key, summary, status, specification 
+FROM issues_fts fts JOIN issues i ON i.rowid = fts.rowid
+WHERE issues_fts MATCH 'organization AND (SMART OR backend OR B2B)'
+ORDER BY rank LIMIT 20;
+```
+
+#### Step 2: Snapshot Promising Candidates
+
+When you find issues that look relevant, **take a full snapshot** to see all fields, the complete description, resolution details, and every comment. This is where the real insights are.
+
+```bash
+bun run jira:search snapshot FHIR-45249
+bun run jira:search snapshot FHIR-33672 --json
+```
+
+The snapshot includes:
+- All metadata fields (version, work group, impact, etc.)
+- Complete description (not truncated)
+- Resolution details and vote information
+- **Full comment thread** showing the discussion evolution
+
+#### Step 3: Follow the Threads
+
+After reading a snapshot, look for connections:
+
+```bash
+# Find issues that reference the one you just read
+bun run jira:search sql "SELECT key, summary FROM issues WHERE description LIKE '%FHIR-45249%'"
+
+# Find other issues by the same reporter (they may have filed related issues)
+bun run jira:search sql "SELECT key, summary FROM issues WHERE reporter_name = 'Cooper Thompson' ORDER BY created_at DESC LIMIT 10"
+
+# Find issues in the same specification with similar keywords
+bun run jira:search fts "organization" --limit 30
+```
+
+#### Step 4: Iterate and Go Deeper
+
+Repeat the loop:
+1. Read snapshots carefully—comments often contain the most valuable insights
+2. Note issue keys mentioned in descriptions/comments
+3. Snapshot those referenced issues
+4. Search for related terms you discover
+5. Build a complete picture of the topic
+
+#### Example Research Session
+
+```bash
+# Initial search
+$ bun run jira:search fts "backend services organization identity"
+# Found: FHIR-45249, FHIR-43002, FHIR-33672...
+
+# Snapshot the most relevant hit
+$ bun run jira:search snapshot FHIR-45249
+# Learned: This is about organization_id being required in B2B auth
+# Comment mentions FHIR-44704 as related
+
+# Follow the reference
+$ bun run jira:search snapshot FHIR-44704  
+# Learned: Defines comprehensive organizational identity requirements
+
+# Search for more context
+$ bun run jira:search fts "UDAP B2B extension"
+# Found more related issues...
+
+# Continue until you have full picture
+```
+
+### Quick Reference Commands
+
+| Goal | Command |
+|------|---------|  
+| Broad search | `bun run jira:search fts "your topic"` |
+| Full issue context | `bun run jira:search snapshot FHIR-XXXXX` |
+| Find references | `sql "... WHERE description LIKE '%FHIR-XXXXX%'"` |
+| Filter by spec | `fts "topic" ` then filter in SQL |
+| Breaking changes | `bun run jira:search breaking R5` |
+
+### Legacy: Iterative Search Pattern
 
 1. **Start broad**: Use FTS to find relevant issues
    ```sql
@@ -316,9 +410,8 @@ LIMIT 20;
    ```
 
 3. **Deep dive**: Get full details on promising issues
-   ```sql
-   SELECT * FROM issues WHERE key = 'FHIR-XXXXX';
-   SELECT * FROM comments WHERE issue_key = 'FHIR-XXXXX';
+   ```bash
+   bun run jira:search snapshot FHIR-XXXXX
    ```
 
 4. **Find related**: Look for issues that reference each other

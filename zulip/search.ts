@@ -10,6 +10,8 @@
  *   fts <query>         Full-text search across all messages
  *   stream <name>       Find messages in a specific stream/channel
  *   topic <topic>       Find messages in a specific topic
+ *   thread <stream> <topic>  View conversation thread
+ *   snapshot <stream> <topic>  Get COMPLETE thread snapshot (all messages, full content)
  *   user <name>         Find messages from a specific user
  *   recent [days]       Show recent messages (default: 7 days)
  *   stats               Show database statistics
@@ -305,16 +307,19 @@ function listTopics(streamName: string, limit: number, json: boolean): void {
   db.close();
 }
 
-function getThread(streamName: string, topic: string, limit: number, json: boolean): void {
+function getThread(streamName: string, topic: string, limit: number, json: boolean, fullSnapshot = false): void {
   const db = getDb();
   
+  // For snapshot mode, get all messages (no limit unless explicitly set)
+  const effectiveLimit = fullSnapshot ? 1000 : limit;
+  
   const rows = db.query(`
-    SELECT id, stream_name, topic, sender_name, content, timestamp
+    SELECT id, stream_name, topic, sender_name, sender_email, content, timestamp, reactions
     FROM messages
     WHERE stream_name LIKE $stream AND topic LIKE $topic
     ORDER BY timestamp ASC
     LIMIT $limit
-  `).all({ $stream: `%${streamName}%`, $topic: `%${topic}%`, $limit: limit });
+  `).all({ $stream: `%${streamName}%`, $topic: `%${topic}%`, $limit: effectiveLimit });
   
   if (json) {
     console.log(JSON.stringify(rows.map(r => ({
@@ -324,8 +329,11 @@ function getThread(streamName: string, topic: string, limit: number, json: boole
   } else {
     if (rows.length > 0) {
       const first = rows[0] as any;
-      console.log(`Thread: #${first.stream_name} > ${first.topic}`);
-      console.log("=".repeat(60));
+      const last = rows[rows.length - 1] as any;
+      console.log(`${fullSnapshot ? "Snapshot" : "Thread"}: #${first.stream_name} > ${first.topic}`);
+      console.log(`URL: https://chat.fhir.org/#narrow/stream/${encodeURIComponent(first.stream_name)}/topic/${encodeURIComponent(first.topic)}`);
+      console.log(`Date range: ${formatTimestamp(first.timestamp)} to ${formatTimestamp(last.timestamp)}`);
+      console.log("=".repeat(70));
     }
     for (const row of rows as any[]) {
       const time = formatTimestamp(row.timestamp);
@@ -334,6 +342,9 @@ function getThread(streamName: string, topic: string, limit: number, json: boole
       console.log(content);
     }
     console.log(`\n--- ${rows.length} message(s) ---`);
+    if (rows.length === effectiveLimit) {
+      console.log(`(results limited to ${effectiveLimit}; use --limit to adjust)`);
+    }
   }
   
   db.close();
@@ -383,7 +394,9 @@ Commands:
   fts <query>          Full-text search across all messages
   stream <name>        Find messages in a specific stream/channel
   topic <topic>        Find messages in a specific topic  
-  thread <stream> <topic>  View full conversation thread
+  thread <stream> <topic>  View conversation thread (limited)
+  snapshot <stream> <topic>  Get COMPLETE thread snapshot - all messages with
+                       full content. Use after FTS to get full context.
   user <name>          Find messages from a specific user
   recent [days]        Show recent messages (default: 7 days)
   stats                Show database statistics
@@ -397,12 +410,19 @@ Options:
   --stream <name>      Filter FTS results to a specific stream
   --help               Show this help
 
+Recommended Workflow:
+  1. Search:   bun run zulip:search fts "your topic"
+  2. Snapshot: bun run zulip:search snapshot "stream" "topic name"
+  3. Analyze the full conversation, then search for related threads
+
 Examples:
   bun run src/search.ts fts "Patient resource"
   bun run src/search.ts fts "validation" --stream implementers
   bun run src/search.ts stream implementers --limit 50
   bun run src/search.ts topic "FHIR R6"
   bun run src/search.ts thread implementers "validation error"
+  bun run src/search.ts snapshot implementers "validation error"  # Full thread
+  bun run src/search.ts snapshot smart "organization identity" --json
   bun run src/search.ts user "Grahame Grieve"
   bun run src/search.ts recent 3
   bun run src/search.ts topics implementers
@@ -457,7 +477,15 @@ async function main() {
         console.error("Usage: thread <stream> <topic>"); 
         return; 
       }
-      getThread(positionals[1], positionals.slice(2).join(" "), limit, json);
+      getThread(positionals[1], positionals.slice(2).join(" "), limit, json, false);
+      break;
+      
+    case "snapshot":
+      if (positionals.length < 3) { 
+        console.error("Usage: snapshot <stream> <topic>"); 
+        return; 
+      }
+      getThread(positionals[1], positionals.slice(2).join(" "), limit, json, true);
       break;
       
     case "user":
