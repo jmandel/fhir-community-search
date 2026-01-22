@@ -1,13 +1,13 @@
 /**
  * FHIR Jira Issue Downloader
  * 
- * Downloads all FHIR specification issues from jira.hl7.org and loads them
- * into a local SQLite database with semantic column names.
+ * Downloads all FHIR specification issues from jira.hl7.org and stores them
+ * as JSON documents in SQLite with full-text search indexes.
  * 
  * Usage:
- *   bun run src/download.ts --cookie "JSESSIONID=xxx; seraph.rememberme.cookie=xxx"
- *   bun run src/download.ts --cookie-file cookies.txt
- *   bun run src/download.ts --cookie-file cookies.txt --resume  # Resume interrupted download
+ *   bun run jira/download.ts --cookie "JSESSIONID=xxx; seraph.rememberme.cookie=xxx"
+ *   bun run jira/download.ts --cookie-file cookies.txt
+ *   bun run jira/download.ts --cookie-file cookies.txt --resume
  */
 
 import { Database } from "bun:sqlite";
@@ -16,31 +16,8 @@ import { existsSync } from "fs";
 
 const BASE_URL = "https://jira.hl7.org/rest/api/2/search";
 
-// All fields we want to capture - comprehensive list
-const FIELDS = [
-  // Standard Jira fields
-  "key", "summary", "description", "issuetype", "status", "resolution",
-  "priority", "created", "updated", "resolutiondate",
-  "reporter", "assignee", "labels", "components", "comment",
-  
-  // FHIR custom fields (with their semantic meanings)
-  "customfield_11302",  // Specification (e.g., FHIR-core)
-  "customfield_11808",  // Raised in Version (e.g., R5, R6)
-  "customfield_11300",  // Related Artifact(s) (e.g., Patient, Observation)
-  "customfield_11400",  // Work Group (e.g., FHIR Infrastructure)
-  "customfield_11807",  // Applied for Version
-  "customfield_10618",  // Resolution Description
-  "customfield_10510",  // Resolution Vote (e.g., "10-0-0")
-  "customfield_10511",  // Change Impact (Non-compatible, Compatible, etc.)
-  "customfield_10512",  // Change Category (Correction, Enhancement, etc.)
-  "customfield_10525",  // Vote Date
-  "customfield_10612",  // Related URL
-  "customfield_11301",  // Related Page(s)
-  "customfield_10518",  // Related Section(s)
-  "customfield_10702",  // Outstanding Negatives
-  "customfield_10704",  // Pre Applied
-  "customfield_11810",  // Reconciled
-];
+// Fetch all fields plus issuelinks (not included in *all for some reason)
+const FIELDS = "*all,issuelinks";
 
 interface JiraIssue {
   key: string;
@@ -53,7 +30,79 @@ interface SearchResponse {
   maxResults: number;
   total: number;
   issues: JiraIssue[];
+  names?: Record<string, string>;
 }
+
+// Map Jira custom field IDs to semantic names
+const FIELD_MAP: Record<string, string> = {
+  // Ballot & Voting
+  "customfield_10902": "selected_ballot",
+  "customfield_11402": "grouping",
+  "customfield_10510": "resolution_vote",
+  "customfield_10525": "vote_date",
+  
+  // Spec Categorization
+  "customfield_11302": "specification",
+  "customfield_11808": "raised_in_version",
+  "customfield_11807": "applied_for_version",
+  "customfield_11400": "work_group",
+  "customfield_11300": "related_artifacts",
+  
+  // Resolution Details
+  "customfield_10618": "resolution_description",
+  "customfield_10512": "change_category",
+  "customfield_10511": "change_impact",
+  "customfield_10702": "outstanding_negatives",
+  "customfield_10704": "pre_applied",
+  
+  // Links & References
+  "customfield_10612": "related_url",
+  "customfield_11301": "related_pages",
+  "customfield_10518": "related_sections",
+  "customfield_14905": "related_issues",
+  "customfield_14909": "duplicate_of",
+  
+  // Participation
+  "customfield_11000": "in_person_requested_by",
+};
+
+// Fields to skip (system/UI/junk)
+const SKIP_FIELDS = new Set([
+  "customfield_11200",  // Development - internal Jira stuff
+  "customfield_14904",  // Block Vote - HTML link, redundant
+  "customfield_14600",  // emaildomainsearcher
+  "customfield_10000",  // Rank
+  "customfield_10500",  // issueFunction
+  "customfield_10001",  // Sprint
+  "customfield_10002",  // Epic Link
+  "customfield_14000",  // Flagged
+  "customfield_14400",  // Team
+  "customfield_14401",  // Parent Link
+  "customfield_14402",  // Target start
+  "customfield_14403",  // Target end
+  "customfield_14404",  // Original story points
+  "customfield_11401",  // Scheduling
+  "customfield_11101",  // Message - Vote Negative
+  "customfield_11102",  // Message - Vote Affirmative
+  "customfield_11103",  // Message - Issue Guidance Comment
+  "customfield_11105",  // Message - Issue Guidance Technical Correction
+  "customfield_11106",  // Message - Issue Guidance Change Request
+  "customfield_11600",  // Message - Vote Remove
+  "customfield_11601",  // Message - Vote Withdraw
+  "customfield_11602",  // Message - Vote Retract
+  "customfield_11800",  // Message - Transition Reopen
+  "customfield_11801",  // Message - Transition Non-duplicate
+  "customfield_11803",  // Message - Transition Duplicate
+  "customfield_14906",  // Message - Manage related issues
+  "customfield_14907",  // Duplicate Voted Issue
+  "customfield_14908",  // Message - Transition Voted Duplicate
+  "workratio",
+  "watches",
+  "lastViewed",
+  "archiveddate",
+  "archivedby",
+  "project",  // Always FHIR
+]);
 
 function parseCookies(cookieStr: string): string {
   return cookieStr.trim();
@@ -68,7 +117,8 @@ async function fetchBatch(
     jql: "project=FHIR ORDER BY key ASC",
     startAt: startAt.toString(),
     maxResults: maxResults.toString(),
-    fields: FIELDS.join(","),
+    fields: FIELDS,
+    expand: "names",
   });
 
   const response = await fetch(`${BASE_URL}?${params}`, {
@@ -87,27 +137,127 @@ async function fetchBatch(
   return response.json();
 }
 
-function arrayToStr(val: any): string {
+/** Extract simple value from Jira field objects */
+function extractValue(val: any): any {
+  if (val === null || val === undefined) return null;
+  
+  // Arrays - recursively extract
   if (Array.isArray(val)) {
-    return val.join(",");
+    const extracted = val.map(v => extractValue(v)).filter(v => v !== null);
+    return extracted.length > 0 ? extracted : null;
   }
-  return val || "";
+  
+  // Objects with common Jira patterns
+  if (typeof val === "object") {
+    // Issue reference (for related_issues, duplicate_of)
+    if (val.key && val.fields) {
+      return {
+        key: val.key,
+        summary: val.fields.summary,
+        status: val.fields.status?.name,
+        type: val.fields.issuetype?.name,
+      };
+    }
+    // User object
+    if (val.displayName && val.name) {
+      return { name: val.displayName, username: val.name };
+    }
+    // Option object (for dropdowns)
+    if (val.value !== undefined) return val.value;
+    if (val.name !== undefined) return val.name;
+    // Status/resolution objects
+    if (val.name) return val.name;
+    // Keep other objects as-is
+    return val;
+  }
+  
+  return val;
 }
 
-function optionToStr(val: any): string {
-  if (val && typeof val === "object") {
-    return val.value || val.name || "";
+/** Transform raw Jira issue to clean JSON document */
+function transformIssue(raw: JiraIssue): Record<string, any> {
+  const f = raw.fields;
+  const doc: Record<string, any> = {
+    key: raw.key,
+    url: `https://jira.hl7.org/browse/${raw.key}`,
+  };
+  
+  // Standard fields with explicit mapping
+  doc.summary = f.summary || null;
+  doc.description = f.description || null;
+  doc.status = extractValue(f.status);
+  doc.resolution = extractValue(f.resolution);
+  doc.priority = extractValue(f.priority);
+  doc.issue_type = extractValue(f.issuetype);
+  doc.created_at = f.created || null;
+  doc.updated_at = f.updated || null;
+  doc.resolved_at = f.resolutiondate || null;
+  
+  // People
+  doc.reporter = extractValue(f.reporter);
+  doc.assignee = extractValue(f.assignee);
+  doc.creator = extractValue(f.creator);
+  
+  // Labels and components
+  doc.labels = f.labels?.length > 0 ? f.labels : null;
+  doc.components = f.components?.map((c: any) => c.name).filter(Boolean);
+  if (doc.components?.length === 0) doc.components = null;
+  
+  // Attachments
+  if (f.attachment?.length > 0) {
+    doc.attachments = f.attachment.map((a: any) => ({
+      filename: a.filename,
+      size: a.size,
+      url: a.content,
+      created: a.created,
+    }));
   }
-  return val || "";
-}
-
-function safeGet(obj: any, ...keys: string[]): string {
-  let current = obj;
-  for (const key of keys) {
-    if (current == null) return "";
-    current = current[key];
+  
+  // Comments
+  const comments = f.comment?.comments || [];
+  if (comments.length > 0) {
+    doc.comments = comments.map((c: any) => ({
+      author: extractValue(c.author),
+      body: c.body,
+      created_at: c.created,
+    }));
   }
-  return current || "";
+  
+  // Subtasks
+  if (f.subtasks?.length > 0) {
+    doc.subtasks = f.subtasks.map((s: any) => ({
+      key: s.key,
+      summary: s.fields?.summary,
+      status: s.fields?.status?.name,
+    }));
+  }
+  
+  // Issue links (standard Jira field)
+  if (f.issuelinks?.length > 0) {
+    doc.issue_links = f.issuelinks.map((link: any) => {
+      const target = link.outwardIssue || link.inwardIssue;
+      const direction = link.outwardIssue ? "outward" : "inward";
+      const relation = direction === "outward" ? link.type?.outward : link.type?.inward;
+      return {
+        relation,
+        direction,
+        target_key: target?.key,
+        target_summary: target?.fields?.summary,
+        target_status: target?.fields?.status?.name,
+      };
+    }).filter((l: any) => l.target_key);
+    if (doc.issue_links.length === 0) doc.issue_links = undefined;
+  }
+  
+  // Custom fields - map to semantic names
+  for (const [jiraField, semanticName] of Object.entries(FIELD_MAP)) {
+    const val = extractValue(f[jiraField]);
+    if (val !== null && val !== undefined) {
+      doc[semanticName] = val;
+    }
+  }
+  
+  return doc;
 }
 
 function createDatabase(dbPath: string): Database {
@@ -116,68 +266,31 @@ function createDatabase(dbPath: string): Database {
   db.exec("PRAGMA journal_mode = WAL");
   
   db.exec("DROP TABLE IF EXISTS issues_fts");
-  db.exec("DROP TABLE IF EXISTS comments");
   db.exec("DROP TABLE IF EXISTS issues");
 
+  // Simple schema: key + JSON document
   db.exec(`
     CREATE TABLE issues (
       key TEXT PRIMARY KEY,
-      summary TEXT NOT NULL,
-      description TEXT,
-      status TEXT,
-      resolution TEXT,
-      priority TEXT,
-      issue_type TEXT,
-      reporter_name TEXT,
-      reporter_username TEXT,
-      assignee_name TEXT,
-      assignee_username TEXT,
-      created_at TEXT,
-      updated_at TEXT,
-      resolved_at TEXT,
-      specification TEXT,
-      raised_in_version TEXT,
-      related_artifact TEXT,
-      work_group TEXT,
-      applied_for_version TEXT,
-      resolution_description TEXT,
-      resolution_vote TEXT,
-      change_category TEXT,
-      change_impact TEXT,
-      vote_date TEXT,
-      related_url TEXT,
-      related_pages TEXT,
-      related_sections TEXT,
-      labels TEXT,
-      components TEXT,
-      comment_count INTEGER DEFAULT 0
+      data JSON NOT NULL
     )
   `);
 
-  db.exec(`
-    CREATE TABLE comments (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      issue_key TEXT NOT NULL,
-      author_name TEXT,
-      author_username TEXT,
-      body TEXT,
-      created_at TEXT,
-      FOREIGN KEY (issue_key) REFERENCES issues(key)
-    )
-  `);
-
+  // FTS5 index on searchable text fields
+  // We'll populate this from the JSON
   db.exec(`
     CREATE VIRTUAL TABLE issues_fts USING fts5(
       key,
       summary,
       description,
       specification,
-      related_artifact,
       work_group,
+      related_artifacts,
       resolution_description,
       labels,
-      content='issues',
-      content_rowid='rowid'
+      comments_text,
+      content='',
+      contentless_delete=1
     )
   `);
 
@@ -194,88 +307,46 @@ function getResumePoint(db: Database): number {
 }
 
 function insertIssue(db: Database, issue: JiraIssue) {
-  const f = issue.fields;
-
-  const insert = db.prepare(`
-    INSERT OR REPLACE INTO issues VALUES (
-      $key, $summary, $description,
-      $status, $resolution, $priority, $issue_type,
-      $reporter_name, $reporter_username, $assignee_name, $assignee_username,
-      $created_at, $updated_at, $resolved_at,
-      $specification, $raised_in_version, $related_artifact, $work_group,
-      $applied_for_version, $resolution_description, $resolution_vote,
-      $change_category, $change_impact, $vote_date,
-      $related_url, $related_pages, $related_sections,
-      $labels, $components, $comment_count
-    )
-  `);
-
-  const comments = f.comment?.comments || [];
-
-  insert.run({
-    $key: issue.key,
-    $summary: f.summary || "",
-    $description: f.description || "",
-    $status: safeGet(f, "status", "name"),
-    $resolution: safeGet(f, "resolution", "name"),
-    $priority: safeGet(f, "priority", "name"),
-    $issue_type: safeGet(f, "issuetype", "name"),
-    $reporter_name: safeGet(f, "reporter", "displayName"),
-    $reporter_username: safeGet(f, "reporter", "name"),
-    $assignee_name: safeGet(f, "assignee", "displayName"),
-    $assignee_username: safeGet(f, "assignee", "name"),
-    $created_at: f.created || "",
-    $updated_at: f.updated || "",
-    $resolved_at: f.resolutiondate || "",
-    $specification: arrayToStr(f.customfield_11302),
-    $raised_in_version: arrayToStr(f.customfield_11808),
-    $related_artifact: arrayToStr(f.customfield_11300),
-    $work_group: arrayToStr(f.customfield_11400),
-    $applied_for_version: arrayToStr(f.customfield_11807),
-    $resolution_description: f.customfield_10618 || "",
-    $resolution_vote: f.customfield_10510 || "",
-    $change_category: optionToStr(f.customfield_10512),
-    $change_impact: optionToStr(f.customfield_10511),
-    $vote_date: f.customfield_10525 || "",
-    $related_url: f.customfield_10612 || "",
-    $related_pages: arrayToStr(f.customfield_11301),
-    $related_sections: f.customfield_10518 || "",
-    $labels: arrayToStr(f.labels),
-    $components: arrayToStr(f.components?.map((c: any) => c.name)),
-    $comment_count: comments.length,
-  });
-
-  // Delete existing comments for this issue (in case of resume/replace)
-  db.prepare("DELETE FROM comments WHERE issue_key = $key").run({ $key: issue.key });
-
-  if (comments.length > 0) {
-    const insertComment = db.prepare(`
-      INSERT INTO comments (issue_key, author_name, author_username, body, created_at)
-      VALUES ($issue_key, $author_name, $author_username, $body, $created_at)
-    `);
-
-    for (const comment of comments) {
-      insertComment.run({
-        $issue_key: issue.key,
-        $author_name: safeGet(comment, "author", "displayName"),
-        $author_username: safeGet(comment, "author", "name"),
-        $body: comment.body || "",
-        $created_at: comment.created || "",
-      });
-    }
-  }
+  const doc = transformIssue(issue);
+  const json = JSON.stringify(doc);
+  
+  // Insert/replace main document
+  db.prepare(`INSERT OR REPLACE INTO issues (key, data) VALUES (?, ?)`)
+    .run(doc.key, json);
+  
+  // Build FTS content
+  const commentsText = doc.comments?.map((c: any) => c.body).join("\n") || "";
+  const labelsText = Array.isArray(doc.labels) ? doc.labels.join(" ") : (doc.labels || "");
+  const artifactsText = Array.isArray(doc.related_artifacts) ? doc.related_artifacts.join(" ") : (doc.related_artifacts || "");
+  const specText = Array.isArray(doc.specification) ? doc.specification.join(" ") : (doc.specification || "");
+  const wgText = Array.isArray(doc.work_group) ? doc.work_group.join(" ") : (doc.work_group || "");
+  
+  // Delete old FTS entry if exists, then insert new
+  db.prepare(`DELETE FROM issues_fts WHERE key = ?`).run(doc.key);
+  db.prepare(`
+    INSERT INTO issues_fts (key, summary, description, specification, work_group, 
+                            related_artifacts, resolution_description, labels, comments_text)
+    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `).run(
+    doc.key,
+    doc.summary || "",
+    doc.description || "",
+    specText,
+    wgText,
+    artifactsText,
+    doc.resolution_description || "",
+    labelsText,
+    commentsText
+  );
 }
 
 function createIndexes(db: Database) {
   console.log("Creating indexes...");
-  db.exec("CREATE INDEX IF NOT EXISTS idx_status ON issues(status)");
-  db.exec("CREATE INDEX IF NOT EXISTS idx_specification ON issues(specification)");
-  db.exec("CREATE INDEX IF NOT EXISTS idx_version ON issues(raised_in_version)");
-  db.exec("CREATE INDEX IF NOT EXISTS idx_artifact ON issues(related_artifact)");
-  db.exec("CREATE INDEX IF NOT EXISTS idx_work_group ON issues(work_group)");
-  db.exec("CREATE INDEX IF NOT EXISTS idx_created ON issues(created_at)");
-  db.exec("CREATE INDEX IF NOT EXISTS idx_change_impact ON issues(change_impact)");
-  db.exec("CREATE INDEX IF NOT EXISTS idx_comments_issue ON comments(issue_key)");
+  // JSON indexes for common queries
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_status ON issues(json_extract(data, '$.status'))`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_resolution ON issues(json_extract(data, '$.resolution'))`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_created ON issues(json_extract(data, '$.created_at'))`);
+  db.exec(`CREATE INDEX IF NOT EXISTS idx_updated ON issues(json_extract(data, '$.updated_at'))`);
 }
 
 async function main() {
@@ -296,8 +367,8 @@ async function main() {
   } else if (values.cookie) {
     cookies = values.cookie;
   } else {
-    console.error("Usage: bun run src/download.ts --cookie 'JSESSIONID=...'");
-    console.error("   or: bun run src/download.ts --cookie-file cookies.txt");
+    console.error("Usage: bun run jira/download.ts --cookie 'JSESSIONID=...'");
+    console.error("   or: bun run jira/download.ts --cookie-file cookies.txt");
     console.error("   Add --resume to continue an interrupted download");
     process.exit(1);
   }
@@ -350,7 +421,7 @@ async function main() {
       if (error.message.includes("403") || error.message.includes("401")) {
         console.error("\n❌ Session expired! Save your progress and get fresh cookies.");
         console.error(`   Current progress: ${startAt}/${total} issues`);
-        console.error(`   Resume with: bun run src/download.ts --cookie-file cookies.txt --resume`);
+        console.error(`   Resume with: bun run jira/download.ts --cookie-file cookies.txt --resume`);
         break;
       }
       
@@ -358,18 +429,13 @@ async function main() {
     }
   }
 
-  console.log("\n\nBuilding FTS index...");
-  db.exec("INSERT INTO issues_fts(issues_fts) VALUES('rebuild')");
-
   createIndexes(db);
 
   // Print stats
   const issueCount = db.query("SELECT COUNT(*) as cnt FROM issues").get() as any;
-  const commentCount = db.query("SELECT COUNT(*) as cnt FROM comments").get() as any;
   
-  console.log("\n✅ Done!");
+  console.log("\n\n✅ Done!");
   console.log(`   Issues: ${issueCount.cnt}/${total}`);
-  console.log(`   Comments: ${commentCount.cnt}`);
   console.log(`   Database: ${dbPath}`);
   
   if (issueCount.cnt < total) {

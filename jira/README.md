@@ -4,20 +4,20 @@ A high-performance local search system for HL7 FHIR specification issues from ji
 
 ## For LLM Agents: How to Use This Tool
 
-**Step 1: Search** - Use FTS to find issues. Try multiple keyword variations (FTS5 is keyword-based, not semantic).
+**Step 1: Search** - Use FTS or filters to find issues. Try multiple keyword variations.
 ```bash
 bun run jira:search fts "organization identity"
-bun run jira:search fts "org context backend"      # try synonyms!
-bun run jira:search fts "tenant client credentials" # try related terms!
+bun run jira:search fts "Patient" --ballot 89190      # combine FTS + ballot filter
+bun run jira:search ballot 89190 --status Triaged     # ballot + status filter
 ```
 
 **Step 2: Snapshot** - For any promising issue, get the FULL content:
 ```bash
 bun run jira:search snapshot FHIR-45249
 ```
-This outputs a complete markdown document with ALL fields, the full description, resolution details, and EVERY comment. This is where the real insights are.
+This outputs a complete markdown document with ALL fields, the full description, resolution details, issue links, and EVERY comment.
 
-**Step 3: Follow connections** - Look for referenced issues in the snapshot, then snapshot those too.
+**Step 3: Follow connections** - Look for referenced issues and linked ballots in the snapshot, then snapshot those too.
 
 ## Quick Start
 
@@ -27,18 +27,73 @@ bun run jira:download --cookie "JSESSIONID=xxx; seraph.rememberme.cookie=xxx"
 
 # 2. Search issues
 bun run jira:search fts "Patient identifier"
-bun run jira:search snapshot FHIR-43499    # <-- FULL issue with all comments!
+bun run jira:search snapshot FHIR-43499
 bun run jira:search stats
+```
+
+## Identifying Ballot Comments
+
+Issues submitted as part of a ballot cycle have a `selected_ballot` field linking them to a ballot (e.g., `BALLOT-89190`). Use the ballot filter to find all comments for a specific ballot:
+
+```bash
+# All issues for ballot 89190
+bun run jira:search ballot 89190
+
+# Ballot issues about Patient resource  
+bun run jira:search fts "Patient" --ballot 89190
+
+# Breaking changes in a ballot
+bun run jira:search ballot 89190 --impact Non-compatible
 ```
 
 ## Key Commands
 
 | Command | Purpose |
 |---------|--------|
-| `fts "query"` | Full-text search to find relevant issues |
-| `snapshot FHIR-XXXXX` | **Get complete issue snapshot** - all fields, full description, resolution, and ALL comments. Use this after finding issues via FTS. |
-| `get FHIR-XXXXX` | Brief issue view (truncated comments) |
+| `fts "query"` | Full-text search across all indexed fields |
+| `ballot <key>` | Find issues linked to a specific ballot |
+| `resource <name>` | Find issues for a FHIR resource |
+| `version <ver>` | Find issues for a FHIR version |
+| `breaking` | Find breaking (non-compatible) changes |
+| `status <status>` | Find issues by status |
+| `snapshot <key>` | **Complete issue snapshot** - all fields, comments, links |
+| `get <key>` | Brief issue view |
 | `stats` | Database statistics |
+| `sql <query>` | Execute raw SQL |
+
+## Filter Options
+
+Filters can be combined with any search command:
+
+| Option | Description |
+|--------|-------------|
+| `--ballot <key>` | Filter by ballot (e.g., `--ballot 89190`) |
+| `--status <status>` | Filter by status (e.g., `--status Triaged`) |
+| `--version <ver>` | Filter by version (e.g., `--version R6`) |
+| `--resource <name>` | Filter by resource (e.g., `--resource Patient`) |
+| `--workgroup <wg>` | Filter by work group (e.g., `--workgroup fhir-i`) |
+| `--impact <impact>` | Filter by change impact |
+| `--limit <n>` | Max results (default: 20) |
+| `--json` | Output as JSON |
+
+## Combined Filter Examples
+
+```bash
+# Ballot comments about Patient
+bun run jira:search fts "Patient" --ballot 89190
+
+# Breaking changes in R6
+bun run jira:search breaking --version R6
+
+# Triaged Patient issues in R6
+bun run jira:search resource Patient --version R6 --status Triaged
+
+# Security issues in fhir-i work group
+bun run jira:search fts "security OAuth" --workgroup fhir-i
+
+# All applied ballot issues
+bun run jira:search ballot 89190 --status Applied
+```
 
 ## Getting Session Cookies
 
@@ -52,466 +107,326 @@ Required cookies: `JSESSIONID`, `seraph.rememberme.cookie`
 
 ## Database Schema
 
-The SQLite database uses semantic column names for clarity:
+The database stores issues as JSON documents with full-text search indexes.
 
 ### `issues` Table
 
-| Column | Type | Description |
-|--------|------|-------------|
-| **Identifiers** |
-| `key` | TEXT | Issue ID (e.g., "FHIR-43499") - PRIMARY KEY |
-| **Content** |
-| `summary` | TEXT | Issue title |
-| `description` | TEXT | Full description (may contain markup) |
-| **Workflow** |
-| `status` | TEXT | Current status (Published, Triaged, Applied, etc.) |
-| `resolution` | TEXT | Resolution type (Persuasive, Not Persuasive, etc.) |
-| `priority` | TEXT | Priority level (Highest, High, Medium, Low, Lowest) |
-| `issue_type` | TEXT | Type (Change Request, Question, etc.) |
-| **People** |
-| `reporter_name` | TEXT | Reporter's display name |
-| `reporter_username` | TEXT | Reporter's Jira username |
-| `assignee_name` | TEXT | Assignee's display name |
-| `assignee_username` | TEXT | Assignee's Jira username |
-| **Timestamps** |
-| `created_at` | TEXT | ISO 8601 creation time |
-| `updated_at` | TEXT | ISO 8601 last update time |
-| `resolved_at` | TEXT | ISO 8601 resolution time |
-| **FHIR Categorization** |
-| `specification` | TEXT | Which spec (FHIR-core, FHIR-us-core, etc.) |
-| `raised_in_version` | TEXT | Version when raised (R4, R5, R6, etc.) |
-| `related_artifact` | TEXT | Affected resource (FHIR-core-Patient, etc.) |
-| `work_group` | TEXT | Responsible HL7 work group |
-| **Resolution Details** |
-| `applied_for_version` | TEXT | Target version for the fix |
-| `resolution_description` | TEXT | Details of how issue was resolved |
-| `resolution_vote` | TEXT | Vote tally (e.g., "John Doe / Jane Roe: 10-0-0") |
-| `change_category` | TEXT | Correction, Clarification, Enhancement |
-| `change_impact` | TEXT | Non-substantive, Compatible, Non-compatible |
-| `vote_date` | TEXT | When the vote was taken |
-| **Location References** |
-| `related_url` | TEXT | Link to affected spec section |
-| `related_pages` | TEXT | Documentation pages affected |
-| `related_sections` | TEXT | Section numbers (e.g., "3.2.1") |
-| **Other** |
-| `labels` | TEXT | Comma-separated labels |
-| `components` | TEXT | Comma-separated components |
-| `comment_count` | INTEGER | Number of comments |
+```sql
+CREATE TABLE issues (
+  key TEXT PRIMARY KEY,   -- e.g., "FHIR-43499"
+  data JSON NOT NULL      -- Full issue document
+);
+```
 
-### `comments` Table
+### JSON Document Structure
 
-| Column | Type | Description |
-|--------|------|-------------|
-| `id` | INTEGER | Auto-increment ID |
-| `issue_key` | TEXT | Parent issue key (FK) |
-| `author_name` | TEXT | Comment author's display name |
-| `author_username` | TEXT | Comment author's username |
-| `body` | TEXT | Comment text |
-| `created_at` | TEXT | ISO 8601 timestamp |
+Each issue document contains:
+
+```javascript
+{
+  // Identifiers
+  "key": "FHIR-43499",
+  "url": "https://jira.hl7.org/browse/FHIR-43499",
+  
+  // Content
+  "summary": "Issue title",
+  "description": "Full description text",
+  
+  // Workflow
+  "status": "Published",           // Published, Triaged, Applied, etc.
+  "resolution": "Persuasive",      // Persuasive, Not Persuasive, etc.
+  "priority": "Medium",
+  "issue_type": "Change Request",  // Change Request, Technical Correction, Comment, Question
+  
+  // People
+  "reporter": { "name": "John Doe", "username": "jdoe" },
+  "assignee": { "name": "Jane Smith", "username": "jsmith" },
+  
+  // Timestamps
+  "created_at": "2024-01-15T10:30:00.000+0000",
+  "updated_at": "2024-02-20T14:22:00.000+0000",
+  "resolved_at": "2024-02-18T09:15:00.000+0000",
+  
+  // FHIR Categorization
+  "specification": ["FHIR-core"],           // Which spec
+  "raised_in_version": ["R6"],              // Version when raised
+  "related_artifacts": ["FHIR-core-Patient"], // Affected resources
+  "work_group": ["fhir-i"],                 // Responsible work group
+  
+  // Ballot Information
+  "selected_ballot": ["BALLOT-89190"],      // Links to ballot (key field!)
+  "grouping": ["Ready-For-Vote"],           // Block vote grouping
+  
+  // Resolution Details  
+  "applied_for_version": ["6.0.0"],
+  "resolution_description": "How it was resolved...",
+  "resolution_vote": "John/Jane: 10-0-0",
+  "vote_date": "2024-02-15",
+  "change_category": "Enhancement",         // Correction, Clarification, Enhancement
+  "change_impact": "Non-substantive",       // Non-substantive, Compatible, Non-compatible
+  
+  // References
+  "related_url": "https://hl7.org/fhir/...",
+  "related_pages": ["FHIR-core-patient"],
+  "related_sections": "3.2.1",
+  
+  // Issue Links (HL7 Jira uses custom fields, not standard issuelinks)
+  "related_issues": [
+    { "key": "FHIR-11111", "summary": "...", "status": "Applied", "type": "Change Request" }
+  ],
+  "duplicate_of": {  // This issue is a duplicate of another
+    "key": "FHIR-99999", 
+    "summary": "The original issue",
+    "status": "Triaged",
+    "type": "Change Request"
+  },
+  
+  // Comments
+  "comments": [
+    {
+      "author": { "name": "Grahame Grieve", "username": "grahamegrieve" },
+      "body": "Comment text...",
+      "created_at": "2024-01-20T08:00:00.000+0000"
+    }
+  ],
+  
+  // Attachments
+  "attachments": [
+    { "filename": "example.pdf", "size": 12345, "url": "..." }
+  ]
+}
+```
 
 ### `issues_fts` - Full-Text Search Index
 
-FTS5 virtual table indexing: `key`, `summary`, `description`, `specification`, 
-`related_artifact`, `work_group`, `resolution_description`, `labels`
+FTS5 virtual table indexing: `key`, `summary`, `description`, `specification`, `work_group`, `related_artifacts`, `resolution_description`, `labels`, `comments_text`
 
-## CLI Commands
-
-### Full-Text Search
-```bash
-bun run jira:search fts "Patient identifier"
-bun run jira:search fts "security authorization OAuth"
-bun run jira:search fts "breaking change Bundle"
-```
-
-### Search by Resource
-```bash
-bun run jira:search resource Patient
-bun run jira:search resource Observation --limit 50
-bun run jira:search resource "Consent" --json
-```
-
-### Search by Version
-```bash
-bun run jira:search version R6
-bun run jira:search version R5 --limit 100
-```
-
-### Find Breaking Changes
-```bash
-bun run jira:search breaking           # All breaking changes
-bun run jira:search breaking R5        # Breaking changes in R5
-bun run jira:search breaking --json
-```
-
-### Search by Status
-```bash
-bun run jira:search status Triaged
-bun run jira:search status "Waiting for Input"
-```
-
-### Get Specific Issue
-```bash
-bun run jira:search get FHIR-43499
-bun run jira:search get FHIR-43499 --json
-```
-
-### Database Statistics
-```bash
-bun run jira:search stats
-```
-
-### Raw SQL Queries
-```bash
-bun run jira:search sql "SELECT key, summary FROM issues WHERE change_impact = 'Non-compatible' LIMIT 10"
-```
-
-## SQL Query Examples for LLM Agents
+## SQL Query Examples
 
 ### Basic Queries
 
 ```sql
--- Find all issues for a specific resource
-SELECT key, summary, status, raised_in_version
+-- Get issue by key
+SELECT data FROM issues WHERE key = 'FHIR-43499';
+
+-- Extract specific fields
+SELECT 
+  key,
+  json_extract(data, '$.summary') as summary,
+  json_extract(data, '$.status') as status,
+  json_extract(data, '$.selected_ballot') as ballot
 FROM issues
-WHERE related_artifact LIKE '%Patient%'
-ORDER BY created_at DESC
+LIMIT 10;
+```
+
+### Finding Ballot Comments
+
+```sql
+-- All issues linked to a specific ballot
+SELECT 
+  key,
+  json_extract(data, '$.summary') as summary,
+  json_extract(data, '$.status') as status
+FROM issues
+WHERE json_extract(data, '$.selected_ballot') LIKE '%BALLOT-89190%'
+ORDER BY json_extract(data, '$.created_at') DESC;
+
+-- Count issues per ballot
+SELECT 
+  json_extract(data, '$.selected_ballot') as ballot,
+  COUNT(*) as issue_count
+FROM issues
+WHERE json_extract(data, '$.selected_ballot') IS NOT NULL
+GROUP BY ballot
+ORDER BY issue_count DESC
 LIMIT 20;
 
--- Find open issues (not yet resolved)
-SELECT key, summary, status, specification, work_group
+-- Ballot issues with specific resolution
+SELECT key, json_extract(data, '$.summary') as summary
 FROM issues
-WHERE status NOT IN ('Published', 'Resolved - No Change', 'Duplicate')
-ORDER BY updated_at DESC
-LIMIT 50;
+WHERE json_extract(data, '$.selected_ballot') LIKE '%BALLOT-89190%'
+  AND json_extract(data, '$.resolution') = 'Persuasive';
+```
 
--- Count issues by status
-SELECT status, COUNT(*) as count
+### Combined Filters
+
+```sql
+-- Ballot + FTS (use the fts table)
+SELECT i.key, json_extract(i.data, '$.summary') as summary
+FROM issues_fts fts
+JOIN issues i ON i.key = fts.key
+WHERE issues_fts MATCH 'Patient identifier'
+  AND json_extract(i.data, '$.selected_ballot') LIKE '%BALLOT-89190%'
+ORDER BY rank
+LIMIT 20;
+
+-- Breaking changes in a specific version
+SELECT key, json_extract(data, '$.summary') as summary
+FROM issues
+WHERE json_extract(data, '$.change_impact') = 'Non-compatible'
+  AND json_extract(data, '$.raised_in_version') LIKE '%R6%';
+
+-- Issues by work group and status
+SELECT key, json_extract(data, '$.summary') as summary
+FROM issues  
+WHERE json_extract(data, '$.work_group') LIKE '%fhir-i%'
+  AND json_extract(data, '$.status') = 'Triaged'
+ORDER BY json_extract(data, '$.updated_at') DESC;
+```
+
+### Analyzing Issue Links & Duplicates
+
+HL7 Jira uses custom fields for issue relationships (not standard Jira `issuelinks`):
+- `related_issues` - array of linked issues
+- `duplicate_of` - the issue this one duplicates
+
+```sql
+-- Find issues that are duplicates of another issue
+SELECT 
+  key,
+  json_extract(data, '$.summary') as summary,
+  json_extract(data, '$.duplicate_of.key') as duplicate_of
+FROM issues
+WHERE json_extract(data, '$.duplicate_of') IS NOT NULL;
+
+-- Find issues with related issues linked
+SELECT 
+  key,
+  json_extract(data, '$.summary') as summary,
+  json_extract(data, '$.related_issues') as related
+FROM issues
+WHERE json_extract(data, '$.related_issues') IS NOT NULL
+LIMIT 20;
+
+-- Find all issues related to a specific issue
+SELECT key, json_extract(data, '$.summary') as summary
+FROM issues
+WHERE json_extract(data, '$.related_issues') LIKE '%FHIR-12345%'
+   OR json_extract(data, '$.duplicate_of.key') = 'FHIR-12345';
+```
+
+### Statistics
+
+```sql
+-- Status distribution
+SELECT 
+  json_extract(data, '$.status') as status,
+  COUNT(*) as count
 FROM issues
 GROUP BY status
 ORDER BY count DESC;
+
+-- Resolution distribution for ballot issues
+SELECT 
+  json_extract(data, '$.resolution') as resolution,
+  COUNT(*) as count
+FROM issues
+WHERE json_extract(data, '$.selected_ballot') IS NOT NULL
+GROUP BY resolution
+ORDER BY count DESC;
+
+-- Issues per work group
+SELECT 
+  json_extract(data, '$.work_group') as work_group,
+  COUNT(*) as count
+FROM issues
+GROUP BY work_group
+ORDER BY count DESC
+LIMIT 20;
 ```
 
 ### Full-Text Search
 
 ```sql
--- FTS search with ranking
-SELECT i.key, i.summary, i.status, i.related_artifact
+-- Basic FTS
+SELECT i.key, json_extract(i.data, '$.summary') as summary
 FROM issues_fts fts
-JOIN issues i ON i.rowid = fts.rowid
-WHERE issues_fts MATCH 'consent AND privacy'
+JOIN issues i ON i.key = fts.key  
+WHERE issues_fts MATCH 'Patient AND identifier'
 ORDER BY rank
 LIMIT 20;
 
--- FTS with phrase search
-SELECT i.key, i.summary
+-- FTS with phrase
+SELECT i.key, json_extract(i.data, '$.summary') as summary
 FROM issues_fts fts
-JOIN issues i ON i.rowid = fts.rowid
+JOIN issues i ON i.key = fts.key
 WHERE issues_fts MATCH '"breaking change"'
-LIMIT 20;
+ORDER BY rank;
 
--- FTS with prefix search
-SELECT i.key, i.summary
+-- FTS in specific column
+SELECT i.key, json_extract(i.data, '$.summary') as summary  
 FROM issues_fts fts
-JOIN issues i ON i.rowid = fts.rowid
-WHERE issues_fts MATCH 'secur*'  -- matches security, secure, etc.
-LIMIT 20;
+JOIN issues i ON i.key = fts.key
+WHERE issues_fts MATCH 'description:security'
+ORDER BY rank;
 ```
 
-### Advanced Queries
+## Key Status Values
 
-```sql
--- Breaking changes affecting specific resource in recent versions
-SELECT key, summary, status, resolution_description, applied_for_version
-FROM issues
-WHERE change_impact = 'Non-compatible'
-  AND related_artifact LIKE '%Observation%'
-  AND raised_in_version IN ('R5', 'R6')
-ORDER BY resolved_at DESC;
+| Status | Description |
+|--------|-------------|
+| `Submitted` | New issue, not yet reviewed |
+| `Triaged` | Categorized, ready for work group review |
+| `Waiting for Input` | Needs more information |
+| `Applied` | Change applied to spec source |
+| `Published` | Released in official publication |
+| `Resolved - No Change` | Decided not to change |
+| `Duplicate` | Duplicate of another issue |
+| `Deferred` | Postponed to future version |
 
--- Issues with most comments (controversial/complex)
-SELECT key, summary, status, comment_count
-FROM issues
-WHERE comment_count > 10
-ORDER BY comment_count DESC
-LIMIT 20;
+## Key Resolution Values
 
--- Issues resolved by specific work group
-SELECT key, summary, status, resolution_vote
-FROM issues
-WHERE work_group LIKE '%Infrastructure%'
-  AND status = 'Published'
-ORDER BY resolved_at DESC
-LIMIT 20;
+| Resolution | Description |
+|------------|-------------|
+| `Persuasive` | Comment accepted, change made |
+| `Persuasive with Modification` | Accepted with changes |
+| `Not Persuasive` | Comment rejected |
+| `Not Persuasive with Modification` | Partially rejected |
+| `Considered - No action required` | Reviewed, no change needed |
+| `Considered - Question answered` | Question addressed |
+| `Retracted` | Submitter withdrew |
+| `Duplicate` | Same as another issue |
 
--- Recent issues needing triage
-SELECT key, summary, reporter_name, created_at, specification
-FROM issues
-WHERE status = 'Submitted'
-ORDER BY created_at DESC
-LIMIT 30;
+## Change Impact Values
 
--- Cross-reference: issues mentioning another issue
-SELECT key, summary, description
-FROM issues
-WHERE description LIKE '%FHIR-43499%'
-   OR description LIKE '%FHIR-12345%';
+| Impact | Description |
+|--------|-------------|
+| `Non-substantive` | Editorial/typo fix, no functional change |
+| `Compatible, substantive` | Functional change, backward compatible |
+| `Non-compatible` | Breaking change |
 
--- Issues with specific labels
-SELECT key, summary, status, labels
-FROM issues
-WHERE labels LIKE '%terminology%'
-ORDER BY updated_at DESC;
-```
+## Custom Field Mapping
 
-### Aggregation Queries
+HL7 Jira uses custom fields extensively. The download script maps these to semantic names:
 
-```sql
--- Issues per month (trend analysis)
-SELECT 
-  substr(created_at, 1, 7) as month,
-  COUNT(*) as issues_created
-FROM issues
-GROUP BY month
-ORDER BY month DESC
-LIMIT 24;
+| Jira Field | Mapped Name | Description |
+|------------|-------------|-------------|
+| `customfield_10902` | `selected_ballot` | Links issue to a ballot (e.g., `["BALLOT-89190"]`) |
+| `customfield_11402` | `grouping` | Block vote grouping (e.g., `["Ready-For-Vote"]`) |
+| `customfield_10510` | `resolution_vote` | Vote tally (e.g., `"John/Jane: 10-0-0"`) |
+| `customfield_10525` | `vote_date` | Date of resolution vote |
+| `customfield_11302` | `specification` | Which spec (e.g., `["FHIR-core"]`) |
+| `customfield_11808` | `raised_in_version` | Version raised in (e.g., `["R6"]`) |
+| `customfield_11807` | `applied_for_version` | Target fix version |
+| `customfield_11400` | `work_group` | Responsible work group |
+| `customfield_11300` | `related_artifacts` | Affected resources/profiles |
+| `customfield_10618` | `resolution_description` | How it was resolved |
+| `customfield_10512` | `change_category` | Correction/Clarification/Enhancement |
+| `customfield_10511` | `change_impact` | Non-substantive/Compatible/Non-compatible |
+| `customfield_10702` | `outstanding_negatives` | STU tracking |
+| `customfield_10704` | `pre_applied` | Already applied flag |
+| `customfield_10612` | `related_url` | Link to spec section |
+| `customfield_11301` | `related_pages` | Documentation pages affected |
+| `customfield_10518` | `related_sections` | Section numbers |
+| `customfield_14905` | `related_issues` | Links to other FHIR issues |
+| `customfield_14909` | `duplicate_of` | Issue this duplicates |
+| `customfield_11000` | `in_person_requested_by` | Users requesting in-person discussion |
 
--- Resolution rate by work group
-SELECT 
-  work_group,
-  COUNT(*) as total,
-  SUM(CASE WHEN status = 'Published' THEN 1 ELSE 0 END) as resolved,
-  ROUND(100.0 * SUM(CASE WHEN status = 'Published' THEN 1 ELSE 0 END) / COUNT(*), 1) as pct
-FROM issues
-WHERE work_group != ''
-GROUP BY work_group
-ORDER BY total DESC
-LIMIT 15;
+## Notable People
 
--- Change impact distribution by version
-SELECT 
-  raised_in_version,
-  COUNT(*) as total,
-  SUM(CASE WHEN change_impact = 'Non-compatible' THEN 1 ELSE 0 END) as breaking,
-  SUM(CASE WHEN change_impact = 'Compatible' THEN 1 ELSE 0 END) as compatible,
-  SUM(CASE WHEN change_impact = 'Non-substantive' THEN 1 ELSE 0 END) as non_substantive
-FROM issues
-WHERE raised_in_version IN ('R4', 'R4B', 'R5', 'R6')
-GROUP BY raised_in_version
-ORDER BY raised_in_version;
-```
-
-### Comment Analysis
-
-```sql
--- Get all comments for an issue
-SELECT author_name, created_at, body
-FROM comments
-WHERE issue_key = 'FHIR-43499'
-ORDER BY created_at;
-
--- Find issues where a specific person commented
-SELECT DISTINCT c.issue_key, i.summary, i.status
-FROM comments c
-JOIN issues i ON i.key = c.issue_key
-WHERE c.author_name LIKE '%Grahame%'
-ORDER BY c.created_at DESC
-LIMIT 20;
-
--- Search comment text
-SELECT c.issue_key, i.summary, substr(c.body, 1, 200) as comment_preview
-FROM comments c
-JOIN issues i ON i.key = c.issue_key
-WHERE c.body LIKE '%backward compat%'
-LIMIT 20;
-```
-
-## Best Practices for LLM Agents
-
-### Search → Snapshot → Explore Loop
-
-The most effective way to research a topic is an **iterative loop** of searching, snapshotting promising results, and exploring connections. Don't stop at surface-level search results—take snapshots to understand full context.
-
-#### Step 1: Cast a Wide Net with FTS
-
-The database uses **SQLite FTS5** for full-text indexing. This is keyword-based search, not semantic—so **try multiple phrasings and synonyms**.
-
-**Don't assume how concepts are discussed.** People use different terminology:
-- "organization identity" vs "org context" vs "tenant" vs "acting organization"
-- "backend services" vs "system-to-system" vs "B2B" vs "client credentials"
-- "authorization" vs "auth" vs "OAuth" vs "access control"
-
-```bash
-# Try multiple variations of the same concept
-bun run jira:search fts "organizational identity SMART"
-bun run jira:search fts "organization context backend"
-bun run jira:search fts "B2B authorization client"
-bun run jira:search fts "tenant client_id"
-bun run jira:search fts "acting organization OAuth"
-```
-
-FTS5 supports boolean operators and prefix matching:
-```bash
-# AND/OR/NOT
-bun run jira:search fts "organization AND backend NOT patient"
-
-# Prefix matching (finds organize, organization, organizational...)
-bun run jira:search fts "organiz*"
-
-# Phrase search
-bun run jira:search fts '"client credentials"'
-```
-
-Or via SQL for more control:
-```sql
-SELECT key, summary, status, specification 
-FROM issues_fts fts JOIN issues i ON i.rowid = fts.rowid
-WHERE issues_fts MATCH 'organization AND (SMART OR backend OR B2B)'
-ORDER BY rank LIMIT 20;
-```
-
-#### Step 2: Snapshot Promising Candidates
-
-When you find issues that look relevant, **take a full snapshot** to see all fields, the complete description, resolution details, and every comment. This is where the real insights are.
-
-```bash
-bun run jira:search snapshot FHIR-45249
-bun run jira:search snapshot FHIR-33672 --json
-```
-
-The snapshot includes:
-- All metadata fields (version, work group, impact, etc.)
-- Complete description (not truncated)
-- Resolution details and vote information
-- **Full comment thread** showing the discussion evolution
-
-#### Step 3: Follow the Threads
-
-After reading a snapshot, look for connections:
-
-```bash
-# Find issues that reference the one you just read
-bun run jira:search sql "SELECT key, summary FROM issues WHERE description LIKE '%FHIR-45249%'"
-
-# Find other issues by the same reporter (they may have filed related issues)
-bun run jira:search sql "SELECT key, summary FROM issues WHERE reporter_name = 'Cooper Thompson' ORDER BY created_at DESC LIMIT 10"
-
-# Find issues in the same specification with similar keywords
-bun run jira:search fts "organization" --limit 30
-```
-
-#### Step 4: Iterate and Go Deeper
-
-Repeat the loop:
-1. Read snapshots carefully—comments often contain the most valuable insights
-2. Note issue keys mentioned in descriptions/comments
-3. Snapshot those referenced issues
-4. Search for related terms you discover
-5. Build a complete picture of the topic
-
-#### Example Research Session
-
-```bash
-# Initial search
-$ bun run jira:search fts "backend services organization identity"
-# Found: FHIR-45249, FHIR-43002, FHIR-33672...
-
-# Snapshot the most relevant hit
-$ bun run jira:search snapshot FHIR-45249
-# Learned: This is about organization_id being required in B2B auth
-# Comment mentions FHIR-44704 as related
-
-# Follow the reference
-$ bun run jira:search snapshot FHIR-44704  
-# Learned: Defines comprehensive organizational identity requirements
-
-# Search for more context
-$ bun run jira:search fts "UDAP B2B extension"
-# Found more related issues...
-
-# Continue until you have full picture
-```
-
-### Quick Reference Commands
-
-| Goal | Command |
-|------|---------|  
-| Broad search | `bun run jira:search fts "your topic"` |
-| Full issue context | `bun run jira:search snapshot FHIR-XXXXX` |
-| Find references | `sql "... WHERE description LIKE '%FHIR-XXXXX%'"` |
-| Filter by spec | `fts "topic" ` then filter in SQL |
-| Breaking changes | `bun run jira:search breaking R5` |
-
-### Legacy: Iterative Search Pattern
-
-1. **Start broad**: Use FTS to find relevant issues
-   ```sql
-   SELECT key, summary FROM issues_fts WHERE issues_fts MATCH 'your topic';
-   ```
-
-2. **Narrow down**: Filter by status, version, resource
-   ```sql
-   SELECT key, summary FROM issues
-   WHERE related_artifact LIKE '%Resource%'
-     AND status NOT IN ('Published', 'Duplicate');
-   ```
-
-3. **Deep dive**: Get full details on promising issues
-   ```bash
-   bun run jira:search snapshot FHIR-XXXXX
-   ```
-
-4. **Find related**: Look for issues that reference each other
-   ```sql
-   SELECT key, summary FROM issues
-   WHERE description LIKE '%FHIR-XXXXX%';
-   ```
-
-### Token-Efficient Queries
-
-- Use `substr()` to limit description/comment length
-- Select only needed columns
-- Use LIMIT to cap results
-- Request JSON output for structured parsing
-
-```sql
-SELECT key, summary, status, 
-       substr(description, 1, 200) as description_preview
-FROM issues
-WHERE related_artifact LIKE '%Patient%'
-LIMIT 10;
-```
-
-### Status Values Reference
-
-| Status | Meaning |
-|--------|---------|
-| Submitted | New, awaiting triage |
-| Triaged | Reviewed, awaiting resolution |
-| Waiting for Input | Needs more information |
-| Resolved - change required | Approved, needs implementation |
-| Applied | Fix implemented in build |
-| Published | Released in spec version |
-| Resolved - No Change | Rejected or no action needed |
-| Duplicate | Same as another issue |
-| Deferred | Postponed to future version |
-
-### Change Impact Values Reference
-
-| Value | Meaning |
-|-------|---------|
-| Non-substantive | No impact on implementations |
-| Compatible | Backward compatible change |
-| Non-compatible | Breaking change |
-
-## Files
-
-```
-fhir-search/
-├── src/
-│   ├── download.ts    # Issue downloader
-│   └── search.ts      # Search CLI
-├── data.db     # SQLite database (after download)
-├── cookies.txt        # Session cookies (create this)
-├── package.json
-└── README.md
-```
+Key contributors whose comments often contain important context:
+- Grahame Grieve (grahamegrieve) - FHIR founder
+- Lloyd McKenzie (lmckenzie) - FHIR co-chair
+- Bryn Rhodes (bryn) - CQL/Clinical Reasoning
+- Eric Haas (ehaas) - US Core
+- Josh Mandel - SMART on FHIR

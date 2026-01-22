@@ -1,18 +1,19 @@
 /**
  * FHIR Jira Issue Search CLI
  * 
- * Powerful search interface for LLM agents to iteratively search and refine results.
+ * Search interface for exploring FHIR specification issues.
  * 
  * Usage:
- *   bun run src/search.ts <command> [options]
+ *   bun run jira/search.ts <command> [options]
  * 
  * Commands:
  *   fts <query>        Full-text search across all indexed fields
+ *   ballot <key>       Find issues linked to a specific ballot (e.g., BALLOT-89190)
  *   resource <name>    Find issues for a specific FHIR resource
  *   version <ver>      Find issues for a specific FHIR version
  *   breaking           Find breaking (non-compatible) changes
  *   status <status>    Find issues by status
- *   get <key>          Get full details for a specific issue
+ *   get <key>          Get brief issue view
  *   snapshot <key>     Get complete issue snapshot (all fields, comments, metadata)
  *   stats              Show database statistics
  *   sql <query>        Execute raw SQL query
@@ -27,271 +28,338 @@ function getDb(): Database {
   return new Database(DB_PATH, { readonly: true });
 }
 
-function formatResults(rows: any[], verbose = false): void {
+/** Parse JSON from database row */
+function parseIssue(row: any): any {
+  if (!row) return null;
+  if (typeof row.data === "string") {
+    return JSON.parse(row.data);
+  }
+  return row.data || row;
+}
+
+function formatResults(rows: any[]): void {
   if (rows.length === 0) {
     console.log("No results found.");
     return;
   }
 
   for (const row of rows) {
-    console.log(`\n${row.key} [${row.status}]`);
-    console.log(`  ${(row.summary || "").slice(0, 75)}${row.summary?.length > 75 ? "..." : ""}`);
+    const issue = parseIssue(row);
+    console.log(`\n${issue.key} [${issue.status}]`);
+    console.log(`  ${(issue.summary || "").slice(0, 80)}${issue.summary?.length > 80 ? "..." : ""}`);
     
-    if (row.specification) console.log(`  Spec: ${row.specification}`);
-    if (row.related_artifact) console.log(`  Resource: ${row.related_artifact}`);
-    if (row.raised_in_version) console.log(`  Version: ${row.raised_in_version}`);
-    if (row.work_group) console.log(`  Work Group: ${row.work_group}`);
-    if (row.change_impact) console.log(`  Impact: ${row.change_impact}`);
+    const spec = Array.isArray(issue.specification) ? issue.specification.join(", ") : issue.specification;
+    const artifacts = Array.isArray(issue.related_artifacts) ? issue.related_artifacts.join(", ") : issue.related_artifacts;
+    const wg = Array.isArray(issue.work_group) ? issue.work_group.join(", ") : issue.work_group;
+    const version = Array.isArray(issue.raised_in_version) ? issue.raised_in_version.join(", ") : issue.raised_in_version;
+    const ballot = Array.isArray(issue.selected_ballot) ? issue.selected_ballot.join(", ") : issue.selected_ballot;
     
-    if (verbose && row.description) {
-      const desc = row.description.replace(/\n/g, " ").slice(0, 150);
-      console.log(`  ${desc}...`);
-    }
+    if (spec) console.log(`  Spec: ${spec}`);
+    if (artifacts) console.log(`  Resource: ${artifacts.slice(0, 60)}${artifacts.length > 60 ? "..." : ""}`);
+    if (version) console.log(`  Version: ${version}`);
+    if (wg) console.log(`  Work Group: ${wg}`);
+    if (ballot) console.log(`  Ballot: ${ballot}`);
+    if (issue.change_impact) console.log(`  Impact: ${issue.change_impact}`);
   }
   
   console.log(`\n--- ${rows.length} result(s) ---`);
 }
 
+interface SearchFilters {
+  query?: string;
+  ballot?: string;
+  status?: string;
+  version?: string;
+  resource?: string;
+  workGroup?: string;
+  impact?: string;
+}
+
+function search(filters: SearchFilters, limit: number, json: boolean): void {
+  const db = getDb();
+  
+  const conditions: string[] = [];
+  const params: Record<string, any> = { $limit: limit };
+  let useFts = false;
+  
+  // Full-text search
+  if (filters.query) {
+    useFts = true;
+    params.$query = filters.query;
+  }
+  
+  // Ballot filter
+  if (filters.ballot) {
+    const key = filters.ballot.toUpperCase().startsWith("BALLOT-") 
+      ? filters.ballot.toUpperCase() 
+      : `BALLOT-${filters.ballot}`;
+    conditions.push(`json_extract(i.data, '$.selected_ballot') LIKE $ballot`);
+    params.$ballot = `%${key}%`;
+  }
+  
+  // Status filter
+  if (filters.status) {
+    conditions.push(`json_extract(i.data, '$.status') LIKE $status`);
+    params.$status = `%${filters.status}%`;
+  }
+  
+  // Version filter
+  if (filters.version) {
+    conditions.push(`json_extract(i.data, '$.raised_in_version') LIKE $version`);
+    params.$version = `%${filters.version}%`;
+  }
+  
+  // Resource/artifact filter
+  if (filters.resource) {
+    conditions.push(`json_extract(i.data, '$.related_artifacts') LIKE $resource`);
+    params.$resource = `%${filters.resource}%`;
+  }
+  
+  // Work group filter
+  if (filters.workGroup) {
+    conditions.push(`json_extract(i.data, '$.work_group') LIKE $wg`);
+    params.$wg = `%${filters.workGroup}%`;
+  }
+  
+  // Change impact filter
+  if (filters.impact) {
+    conditions.push(`json_extract(i.data, '$.change_impact') = $impact`);
+    params.$impact = filters.impact;
+  }
+  
+  let sql: string;
+  if (useFts) {
+    sql = `
+      SELECT i.data
+      FROM issues_fts fts
+      JOIN issues i ON i.rowid = fts.rowid
+      WHERE issues_fts MATCH $query
+    `;
+    if (conditions.length > 0) {
+      sql += ` AND ${conditions.join(" AND ")}`;
+    }
+    sql += ` ORDER BY fts.rank LIMIT $limit`;
+  } else {
+    sql = `SELECT data FROM issues i`;
+    if (conditions.length > 0) {
+      sql += ` WHERE ${conditions.join(" AND ")}`;
+    }
+    sql += ` ORDER BY json_extract(i.data, '$.updated_at') DESC LIMIT $limit`;
+  }
+  
+  const rows = db.query(sql).all(params);
+  
+  if (json) {
+    console.log(JSON.stringify(rows.map(parseIssue), null, 2));
+  } else {
+    // Build description of search
+    const parts: string[] = [];
+    if (filters.query) parts.push(`text: "${filters.query}"`);
+    if (filters.ballot) parts.push(`ballot: ${filters.ballot}`);
+    if (filters.status) parts.push(`status: ${filters.status}`);
+    if (filters.version) parts.push(`version: ${filters.version}`);
+    if (filters.resource) parts.push(`resource: ${filters.resource}`);
+    if (filters.workGroup) parts.push(`workgroup: ${filters.workGroup}`);
+    if (filters.impact) parts.push(`impact: ${filters.impact}`);
+    console.log(`Search: ${parts.join(", ")}`);
+    formatResults(rows);
+  }
+  
+  db.close();
+}
+
 function fts(query: string, limit: number, json: boolean): void {
-  const db = getDb();
-  
-  const rows = db.query(`
-    SELECT i.key, i.summary, i.status, i.specification, 
-           i.related_artifact, i.raised_in_version, i.work_group,
-           i.change_impact, substr(i.description, 1, 300) as description
-    FROM issues_fts fts
-    JOIN issues i ON i.rowid = fts.rowid
-    WHERE issues_fts MATCH $query
-    ORDER BY rank
-    LIMIT $limit
-  `).all({ $query: query, $limit: limit });
-
-  if (json) {
-    console.log(JSON.stringify(rows, null, 2));
-  } else {
-    console.log(`Full-text search: "${query}"`);
-    formatResults(rows, true);
-  }
-  
-  db.close();
+  search({ query }, limit, json);
 }
 
-function searchResource(resource: string, limit: number, json: boolean): void {
-  const db = getDb();
-  
-  const rows = db.query(`
-    SELECT key, summary, status, specification, related_artifact,
-           raised_in_version, work_group, change_impact
-    FROM issues
-    WHERE related_artifact LIKE $pattern
-    ORDER BY created_at DESC
-    LIMIT $limit
-  `).all({ $pattern: `%${resource}%`, $limit: limit });
-
-  if (json) {
-    console.log(JSON.stringify(rows, null, 2));
-  } else {
-    console.log(`Issues for resource: "${resource}"`);
-    formatResults(rows);
-  }
-  
-  db.close();
+function searchBallot(ballotKey: string, filters: Partial<SearchFilters>, limit: number, json: boolean): void {
+  search({ ...filters, ballot: ballotKey }, limit, json);
 }
 
-function searchVersion(version: string, limit: number, json: boolean): void {
-  const db = getDb();
-  
-  const rows = db.query(`
-    SELECT key, summary, status, specification, related_artifact,
-           raised_in_version, change_category, change_impact
-    FROM issues
-    WHERE raised_in_version LIKE $pattern
-    ORDER BY created_at DESC
-    LIMIT $limit
-  `).all({ $pattern: `%${version}%`, $limit: limit });
+function searchResource(resource: string, filters: Partial<SearchFilters>, limit: number, json: boolean): void {
+  search({ ...filters, resource }, limit, json);
+}
 
-  if (json) {
-    console.log(JSON.stringify(rows, null, 2));
-  } else {
-    console.log(`Issues for version: "${version}"`);
-    formatResults(rows);
-  }
-  
-  db.close();
+function searchVersion(version: string, filters: Partial<SearchFilters>, limit: number, json: boolean): void {
+  search({ ...filters, version }, limit, json);
 }
 
 function searchBreaking(version: string | undefined, limit: number, json: boolean): void {
-  const db = getDb();
-  
-  let rows;
-  if (version) {
-    rows = db.query(`
-      SELECT key, summary, status, specification, related_artifact,
-             raised_in_version, applied_for_version, 
-             substr(resolution_description, 1, 200) as resolution_description
-      FROM issues
-      WHERE change_impact = 'Non-compatible'
-        AND raised_in_version LIKE $pattern
-      ORDER BY resolved_at DESC
-      LIMIT $limit
-    `).all({ $pattern: `%${version}%`, $limit: limit });
-  } else {
-    rows = db.query(`
-      SELECT key, summary, status, specification, related_artifact,
-             raised_in_version, applied_for_version,
-             substr(resolution_description, 1, 200) as resolution_description
-      FROM issues
-      WHERE change_impact = 'Non-compatible'
-      ORDER BY resolved_at DESC
-      LIMIT $limit
-    `).all({ $limit: limit });
-  }
-
-  if (json) {
-    console.log(JSON.stringify(rows, null, 2));
-  } else {
-    console.log(`Breaking changes${version ? ` for ${version}` : ""}:`);
-    formatResults(rows, true);
-  }
-  
-  db.close();
+  search({ impact: "Non-compatible", version }, limit, json);
 }
 
-function searchStatus(status: string, limit: number, json: boolean): void {
-  const db = getDb();
-  
-  const rows = db.query(`
-    SELECT key, summary, status, specification, related_artifact,
-           raised_in_version, work_group
-    FROM issues
-    WHERE status LIKE $pattern
-    ORDER BY updated_at DESC
-    LIMIT $limit
-  `).all({ $pattern: `%${status}%`, $limit: limit });
-
-  if (json) {
-    console.log(JSON.stringify(rows, null, 2));
-  } else {
-    console.log(`Issues with status: "${status}"`);
-    formatResults(rows);
-  }
-  
-  db.close();
+function searchStatus(status: string, filters: Partial<SearchFilters>, limit: number, json: boolean): void {
+  search({ ...filters, status }, limit, json);
 }
 
-function getIssue(key: string, json: boolean, fullSnapshot = false): void {
+/** Render issue as markdown */
+function renderMarkdown(issue: any): string {
+  const lines: string[] = [];
+  
+  lines.push(`# ${issue.key}: ${issue.summary}\n`);
+  lines.push(`**URL:** ${issue.url}\n`);
+  
+  // Metadata table
+  lines.push(`## Metadata\n`);
+  lines.push(`| Field | Value |`);
+  lines.push(`|-------|-------|`);
+  lines.push(`| **Status** | ${issue.status || "Unknown"} |`);
+  lines.push(`| **Resolution** | ${issue.resolution || "Unresolved"} |`);
+  lines.push(`| **Priority** | ${issue.priority || "N/A"} |`);
+  lines.push(`| **Type** | ${issue.issue_type || "N/A"} |`);
+  
+  // Reporter/Assignee
+  const reporter = issue.reporter?.name || issue.reporter || "Unknown";
+  const reporterUser = issue.reporter?.username ? ` (${issue.reporter.username})` : "";
+  lines.push(`| **Reporter** | ${reporter}${reporterUser} |`);
+  
+  const assignee = issue.assignee?.name || issue.assignee || "Unassigned";
+  lines.push(`| **Assignee** | ${assignee} |`);
+  
+  // Spec info
+  const spec = Array.isArray(issue.specification) ? issue.specification.join(", ") : issue.specification;
+  const artifacts = Array.isArray(issue.related_artifacts) ? issue.related_artifacts.join(", ") : issue.related_artifacts;
+  const version = Array.isArray(issue.raised_in_version) ? issue.raised_in_version.join(", ") : issue.raised_in_version;
+  const wg = Array.isArray(issue.work_group) ? issue.work_group.join(", ") : issue.work_group;
+  const ballot = Array.isArray(issue.selected_ballot) ? issue.selected_ballot.join(", ") : issue.selected_ballot;
+  
+  lines.push(`| **Specification** | ${spec || "N/A"} |`);
+  if (artifacts) lines.push(`| **Related Artifacts** | ${artifacts} |`);
+  lines.push(`| **Raised in Version** | ${version || "N/A"} |`);
+  if (wg) lines.push(`| **Work Group** | ${wg} |`);
+  if (ballot) lines.push(`| **Ballot** | ${ballot} |`);
+  
+  // Dates
+  lines.push(`| **Created** | ${issue.created_at || "N/A"} |`);
+  lines.push(`| **Updated** | ${issue.updated_at || "N/A"} |`);
+  if (issue.resolved_at) lines.push(`| **Resolved** | ${issue.resolved_at} |`);
+  
+  // Resolution details
+  if (issue.change_impact) lines.push(`| **Change Impact** | ${issue.change_impact} |`);
+  if (issue.change_category) lines.push(`| **Change Category** | ${issue.change_category} |`);
+  
+  const appliedFor = Array.isArray(issue.applied_for_version) ? issue.applied_for_version.join(", ") : issue.applied_for_version;
+  if (appliedFor) lines.push(`| **Applied for Version** | ${appliedFor} |`);
+  
+  if (issue.resolution_vote) lines.push(`| **Vote** | ${issue.resolution_vote} |`);
+  if (issue.vote_date) lines.push(`| **Vote Date** | ${issue.vote_date} |`);
+  
+  // References
+  if (issue.related_url) lines.push(`| **Related URL** | ${issue.related_url} |`);
+  const pages = Array.isArray(issue.related_pages) ? issue.related_pages.join(", ") : issue.related_pages;
+  if (pages) lines.push(`| **Related Pages** | ${pages} |`);
+  if (issue.related_sections) lines.push(`| **Related Sections** | ${issue.related_sections} |`);
+  
+  // Grouping (block votes etc)
+  const grouping = Array.isArray(issue.grouping) ? issue.grouping.join(", ") : issue.grouping;
+  if (grouping) lines.push(`| **Grouping** | ${grouping} |`);
+  
+  // Labels/Components
+  if (issue.labels?.length) lines.push(`| **Labels** | ${issue.labels.join(", ")} |`);
+  if (issue.components?.length) lines.push(`| **Components** | ${issue.components.join(", ")} |`);
+  
+  // Comment count
+  const commentCount = issue.comments?.length || 0;
+  lines.push(`| **Comment Count** | ${commentCount} |`);
+  
+  // Issue Links
+  if (issue.issue_links?.length > 0) {
+    lines.push(`\n## Issue Links\n`);
+    for (const link of issue.issue_links) {
+      const status = link.target_status ? ` [${link.target_status}]` : "";
+      lines.push(`- **${link.relation}** → [${link.target_key}](https://jira.hl7.org/browse/${link.target_key})${status}`);
+      if (link.target_summary) {
+        lines.push(`  - ${link.target_summary}`);
+      }
+    }
+  }
+  
+  // Related Issues (custom field)
+  if (issue.related_issues?.length > 0) {
+    lines.push(`\n## Related Issues\n`);
+    for (const rel of issue.related_issues) {
+      const status = rel.status ? ` [${rel.status}]` : "";
+      lines.push(`- [${rel.key}](https://jira.hl7.org/browse/${rel.key})${status}: ${rel.summary || ""}`);  
+    }
+  }
+  
+  // Duplicate
+  if (issue.duplicate_of) {
+    lines.push(`\n## Duplicate Of\n`);
+    const dup = issue.duplicate_of;
+    lines.push(`[${dup.key}](https://jira.hl7.org/browse/${dup.key}): ${dup.summary || ""}`);
+  }
+  
+  // Description
+  lines.push(`\n## Description\n`);
+  lines.push(issue.description || "*No description provided*");
+  
+  // Resolution Description
+  if (issue.resolution_description) {
+    lines.push(`\n## Resolution\n`);
+    lines.push(issue.resolution_description);
+  }
+  
+  // Attachments
+  if (issue.attachments?.length > 0) {
+    lines.push(`\n## Attachments (${issue.attachments.length})\n`);
+    for (const att of issue.attachments) {
+      lines.push(`- [${att.filename}](${att.url}) (${att.size} bytes)`);
+    }
+  }
+  
+  // Comments
+  if (issue.comments?.length > 0) {
+    lines.push(`\n## Comments (${issue.comments.length})\n`);
+    for (const c of issue.comments) {
+      const author = c.author?.name || c.author || "Unknown";
+      lines.push(`### [${c.created_at}] ${author}\n`);
+      lines.push(c.body || "*empty*");
+      lines.push("");
+    }
+  }
+  
+  return lines.join("\n");
+}
+
+function getIssue(key: string, json: boolean, snapshot: boolean): void {
   const db = getDb();
   
-  const issue = db.query("SELECT * FROM issues WHERE key = $key").get({ $key: key }) as any;
+  const row = db.query(`SELECT data FROM issues WHERE key = $key`).get({ $key: key }) as any;
   
-  if (!issue) {
-    console.log(`Issue ${key} not found`);
+  if (!row) {
+    console.error(`Issue ${key} not found`);
     db.close();
     return;
   }
-
-  const comments = db.query(`
-    SELECT author_name, author_username, body, created_at 
-    FROM comments 
-    WHERE issue_key = $key 
-    ORDER BY created_at
-  `).all({ $key: key });
-
+  
+  const issue = parseIssue(row);
+  
   if (json) {
-    console.log(JSON.stringify({ ...issue, comments }, null, 2));
-  } else if (fullSnapshot) {
-    // Full markdown snapshot with all fields
-    console.log(`# ${issue.key}: ${issue.summary}\n`);
-    console.log(`**URL:** https://jira.hl7.org/browse/${issue.key}\n`);
-    
-    console.log(`## Metadata\n`);
-    console.log(`| Field | Value |`);
-    console.log(`|-------|-------|`);
-    console.log(`| **Status** | ${issue.status} |`);
-    console.log(`| **Resolution** | ${issue.resolution || "Unresolved"} |`);
-    console.log(`| **Priority** | ${issue.priority} |`);
-    console.log(`| **Type** | ${issue.issue_type} |`);
-    console.log(`| **Reporter** | ${issue.reporter_name} (${issue.reporter_username || "n/a"}) |`);
-    console.log(`| **Assignee** | ${issue.assignee_name || "Unassigned"} |`);
-    console.log(`| **Specification** | ${issue.specification || "N/A"} |`);
-    console.log(`| **Resource/Artifact** | ${issue.related_artifact || "N/A"} |`);
-    console.log(`| **Raised in Version** | ${issue.raised_in_version || "N/A"} |`);
-    console.log(`| **Work Group** | ${issue.work_group || "N/A"} |`);
-    console.log(`| **Created** | ${issue.created_at} |`);
-    console.log(`| **Updated** | ${issue.updated_at} |`);
-    if (issue.resolved_at) console.log(`| **Resolved** | ${issue.resolved_at} |`);
-    if (issue.change_impact) console.log(`| **Change Impact** | ${issue.change_impact} |`);
-    if (issue.change_category) console.log(`| **Change Category** | ${issue.change_category} |`);
-    if (issue.applied_for_version) console.log(`| **Applied for Version** | ${issue.applied_for_version} |`);
-    if (issue.resolution_vote) console.log(`| **Vote** | ${issue.resolution_vote} |`);
-    if (issue.vote_date) console.log(`| **Vote Date** | ${issue.vote_date} |`);
-    if (issue.related_url) console.log(`| **Related URL** | ${issue.related_url} |`);
-    if (issue.related_pages) console.log(`| **Related Pages** | ${issue.related_pages} |`);
-    if (issue.related_sections) console.log(`| **Related Sections** | ${issue.related_sections} |`);
-    if (issue.labels) console.log(`| **Labels** | ${issue.labels} |`);
-    if (issue.components) console.log(`| **Components** | ${issue.components} |`);
-    console.log(`| **Comment Count** | ${issue.comment_count || comments.length} |`);
-    
-    console.log(`\n## Description\n`);
-    console.log(issue.description || "*No description provided*");
-    
-    if (issue.resolution_description) {
-      console.log(`\n## Resolution\n`);
-      console.log(issue.resolution_description);
-    }
-    
-    if (comments.length > 0) {
-      console.log(`\n## Comments (${comments.length})\n`);
-      for (const c of comments as any[]) {
-        console.log(`### [${c.created_at}] ${c.author_name}\n`);
-        console.log(c.body || "*empty*");
-        console.log("");
-      }
-    }
+    console.log(JSON.stringify(issue, null, 2));
+  } else if (snapshot) {
+    console.log(renderMarkdown(issue));
   } else {
-    // Brief view (get command)
+    // Brief view
     console.log(`\n${"=".repeat(70)}`);
     console.log(`${issue.key}: ${issue.summary}`);
     console.log(`${"=".repeat(70)}`);
-    console.log(`URL: https://jira.hl7.org/browse/${issue.key}`);
+    console.log(`URL: ${issue.url}`);
     console.log(`Status: ${issue.status}`);
     console.log(`Resolution: ${issue.resolution || "Unresolved"}`);
-    console.log(`Priority: ${issue.priority}`);
     console.log(`Type: ${issue.issue_type}`);
-    console.log(`Reporter: ${issue.reporter_name}`);
-    console.log(`Assignee: ${issue.assignee_name || "Unassigned"}`);
-    console.log(`\nSpecification: ${issue.specification}`);
-    console.log(`Resource: ${issue.related_artifact || "N/A"}`);
-    console.log(`Version: ${issue.raised_in_version}`);
-    console.log(`Work Group: ${issue.work_group || "N/A"}`);
-    console.log(`\nCreated: ${issue.created_at}`);
-    console.log(`Updated: ${issue.updated_at}`);
-    if (issue.resolved_at) console.log(`Resolved: ${issue.resolved_at}`);
     
-    if (issue.change_impact || issue.change_category) {
-      console.log(`\nChange Impact: ${issue.change_impact || "N/A"}`);
-      console.log(`Change Category: ${issue.change_category || "N/A"}`);
-    }
+    const spec = Array.isArray(issue.specification) ? issue.specification.join(", ") : issue.specification;
+    const ballot = Array.isArray(issue.selected_ballot) ? issue.selected_ballot.join(", ") : issue.selected_ballot;
+    console.log(`Specification: ${spec || "N/A"}`);
+    if (ballot) console.log(`Ballot: ${ballot}`);
     
-    if (issue.resolution_vote) {
-      console.log(`Vote: ${issue.resolution_vote}`);
-    }
+    console.log(`\n--- Description (truncated) ---`);
+    console.log((issue.description || "No description").slice(0, 500));
+    if (issue.description?.length > 500) console.log("...");
     
-    console.log(`\n--- Description ---`);
-    console.log(issue.description || "No description");
-    
-    if (issue.resolution_description) {
-      console.log(`\n--- Resolution ---`);
-      console.log(issue.resolution_description);
-    }
-    
-    if (comments.length > 0) {
-      console.log(`\n--- Comments (${comments.length}) ---`);
-      for (const c of comments as any[]) {
-        console.log(`\n[${c.created_at}] ${c.author_name}:`);
-        console.log(c.body?.slice(0, 500) || "");
-        if (c.body?.length > 500) console.log("...");
-      }
+    if (issue.comments?.length > 0) {
+      console.log(`\n--- ${issue.comments.length} comment(s) - use 'snapshot' for full content ---`);
     }
   }
   
@@ -301,61 +369,49 @@ function getIssue(key: string, json: boolean, fullSnapshot = false): void {
 function showStats(): void {
   const db = getDb();
   
-  console.log("FHIR Jira Issue Database Statistics");
-  console.log("=".repeat(60));
+  const total = db.query("SELECT COUNT(*) as cnt FROM issues").get() as any;
   
-  const issueCount = db.query("SELECT COUNT(*) as cnt FROM issues").get() as any;
-  const commentCount = db.query("SELECT COUNT(*) as cnt FROM comments").get() as any;
-  console.log(`\nTotal issues: ${issueCount.cnt}`);
-  console.log(`Total comments: ${commentCount.cnt}`);
+  console.log(`\nDatabase Statistics`);
+  console.log(`${"-".repeat(40)}`);
+  console.log(`Total issues: ${total.cnt}`);
   
-  console.log("\n--- Status Distribution ---");
+  // Status breakdown
+  console.log(`\nBy Status:`);
   const statuses = db.query(`
-    SELECT status, COUNT(*) as cnt 
-    FROM issues GROUP BY status ORDER BY cnt DESC
+    SELECT json_extract(data, '$.status') as status, COUNT(*) as cnt
+    FROM issues GROUP BY status ORDER BY cnt DESC LIMIT 10
   `).all() as any[];
-  for (const row of statuses) {
-    console.log(`  ${row.status.padEnd(30)} ${row.cnt.toString().padStart(6)}`);
+  for (const s of statuses) {
+    console.log(`  ${s.status}: ${s.cnt}`);
   }
   
-  console.log("\n--- Top Specifications ---");
-  const specs = db.query(`
-    SELECT specification, COUNT(*) as cnt 
-    FROM issues WHERE specification != '' 
-    GROUP BY specification ORDER BY cnt DESC LIMIT 15
+  // Ballot issues
+  const ballotCount = db.query(`
+    SELECT COUNT(*) as cnt FROM issues 
+    WHERE json_extract(data, '$.selected_ballot') IS NOT NULL
+  `).get() as any;
+  console.log(`\nBallot-linked issues: ${ballotCount.cnt}`);
+  
+  // Top ballots
+  console.log(`\nTop Ballots:`);
+  const ballots = db.query(`
+    SELECT json_extract(data, '$.selected_ballot') as ballot, COUNT(*) as cnt
+    FROM issues 
+    WHERE ballot IS NOT NULL
+    GROUP BY ballot ORDER BY cnt DESC LIMIT 10
   `).all() as any[];
-  for (const row of specs) {
-    console.log(`  ${row.specification.padEnd(40)} ${row.cnt.toString().padStart(6)}`);
+  for (const b of ballots) {
+    console.log(`  ${b.ballot}: ${b.cnt}`);
   }
   
-  console.log("\n--- Top Resources ---");
-  const artifacts = db.query(`
-    SELECT related_artifact, COUNT(*) as cnt 
-    FROM issues WHERE related_artifact != '' 
-    GROUP BY related_artifact ORDER BY cnt DESC LIMIT 15
+  // Change impact
+  console.log(`\nBy Change Impact:`);
+  const impacts = db.query(`
+    SELECT json_extract(data, '$.change_impact') as impact, COUNT(*) as cnt
+    FROM issues WHERE impact IS NOT NULL GROUP BY impact ORDER BY cnt DESC
   `).all() as any[];
-  for (const row of artifacts) {
-    console.log(`  ${row.related_artifact.padEnd(40)} ${row.cnt.toString().padStart(6)}`);
-  }
-  
-  console.log("\n--- Version Distribution ---");
-  const versions = db.query(`
-    SELECT raised_in_version, COUNT(*) as cnt 
-    FROM issues WHERE raised_in_version != '' 
-    GROUP BY raised_in_version ORDER BY cnt DESC LIMIT 10
-  `).all() as any[];
-  for (const row of versions) {
-    console.log(`  ${row.raised_in_version.padEnd(20)} ${row.cnt.toString().padStart(6)}`);
-  }
-  
-  console.log("\n--- Work Groups ---");
-  const wgs = db.query(`
-    SELECT work_group, COUNT(*) as cnt 
-    FROM issues WHERE work_group != '' 
-    GROUP BY work_group ORDER BY cnt DESC LIMIT 10
-  `).all() as any[];
-  for (const row of wgs) {
-    console.log(`  ${row.work_group.padEnd(40)} ${row.cnt.toString().padStart(6)}`);
+  for (const i of impacts) {
+    console.log(`  ${i.impact}: ${i.cnt}`);
   }
   
   db.close();
@@ -366,31 +422,13 @@ function execSql(query: string, json: boolean): void {
   
   try {
     const rows = db.query(query).all();
-    
     if (json) {
       console.log(JSON.stringify(rows, null, 2));
     } else {
-      if (rows.length === 0) {
-        console.log("No results");
-        return;
-      }
-      
-      // Print as table
-      const keys = Object.keys(rows[0] as object);
-      console.log(keys.join("\t"));
-      for (const row of rows as any[]) {
-        const vals = keys.map(k => {
-          const v = row[k];
-          if (v == null) return "";
-          const s = String(v);
-          return s.length > 60 ? s.slice(0, 57) + "..." : s;
-        });
-        console.log(vals.join("\t"));
-      }
-      console.log(`\n--- ${rows.length} row(s) ---`);
+      console.log(rows);
     }
   } catch (error: any) {
-    console.error("SQL Error:", error.message);
+    console.error(`SQL Error: ${error.message}`);
   }
   
   db.close();
@@ -398,45 +436,60 @@ function execSql(query: string, json: boolean): void {
 
 function printHelp(): void {
   console.log(`
-FHIR Jira Issue Search
+FHIR Jira Search CLI
 
-Usage: bun run src/search.ts <command> [options]
+Usage: bun run jira/search.ts <command> [args] [options]
 
 Commands:
-  fts <query>         Full-text search across all indexed fields
-  resource <name>     Find issues for a specific FHIR resource
-  version <ver>       Find issues for a specific FHIR version  
+  fts <query>         Full-text search (supports FTS5 syntax: AND, OR, "phrases")
+  ballot <key>        Find issues linked to a ballot (e.g., BALLOT-89190 or just 89190)
+  resource <name>     Find issues for a FHIR resource (e.g., Patient, Observation)
+  version <ver>       Find issues for a FHIR version (e.g., R4, R5, R6)
   breaking [version]  Find breaking (non-compatible) changes
-  status <status>     Find issues by workflow status
-  get <key>           Get details for a specific issue (e.g., FHIR-43499)
-  snapshot <key>      Get COMPLETE issue snapshot - all fields, full comments,
-                      metadata. Use after FTS to get full context for analysis.
-  stats               Show database statistics
-  sql <query>         Execute raw SQL query
+  status <status>     Find issues by status (e.g., Triaged, Published)
+  get <key>           Brief issue view
+  snapshot <key>      Complete issue snapshot - all fields, comments, links.
+                      Use after FTS to get full context for analysis.
+  stats               Database statistics
+  sql <query>         Execute raw SQL (data column contains JSON)
 
-Options:
+Filter Options (can combine with any command):
+  --ballot <key>      Filter by ballot (e.g., --ballot 89190)
+  --status <status>   Filter by status (e.g., --status Triaged)
+  --version <ver>     Filter by version (e.g., --version R6)
+  --resource <name>   Filter by resource (e.g., --resource Patient)
+  --workgroup <wg>    Filter by work group (e.g., --workgroup fhir-i)
+  --impact <impact>   Filter by change impact (Non-compatible, Compatible, Non-substantive)
+
+General Options:
   --limit <n>         Max results (default: 20)
   --json              Output as JSON
   --help              Show this help
 
+Combined Filter Examples:
+  # Ballot comments about Patient resource
+  bun run jira/search.ts fts "Patient" --ballot 89190
+  
+  # Breaking changes in R6 ballot
+  bun run jira/search.ts ballot 89190 --impact Non-compatible
+  
+  # Triaged issues for Patient in R6
+  bun run jira/search.ts resource Patient --version R6 --status Triaged
+  
+  # FTS within a specific work group
+  bun run jira/search.ts fts "security" --workgroup fhir-i
+
 Recommended Workflow:
   1. Search:   bun run jira:search fts "your topic"
   2. Snapshot: bun run jira:search snapshot FHIR-XXXXX
-  3. Analyze the full issue context, then search for related issues
+  3. Follow links and related issues mentioned in the snapshot
 
-Examples:
-  bun run src/search.ts fts "Patient identifier"
-  bun run src/search.ts resource Patient --limit 50
-  bun run src/search.ts version R6 --json
-  bun run src/search.ts breaking R5
-  bun run src/search.ts status Triaged
-  bun run src/search.ts get FHIR-43499
-  bun run src/search.ts snapshot FHIR-43499   # Full issue with all comments
-  bun run src/search.ts snapshot FHIR-43499 --json
-  bun run src/search.ts sql "SELECT key, summary FROM issues WHERE change_impact = 'Non-compatible' LIMIT 10"
-
-Environment:
-  FHIR_DB    Path to database file (default: fhir_issues.db)
+Basic Examples:
+  bun run jira/search.ts fts "Patient identifier"
+  bun run jira/search.ts ballot 89190
+  bun run jira/search.ts resource Patient --limit 50
+  bun run jira/search.ts snapshot FHIR-43499
+  bun run jira/search.ts sql "SELECT key, json_extract(data, '$.summary') FROM issues LIMIT 5"
 `);
 }
 
@@ -453,7 +506,12 @@ async function main() {
     options: {
       limit: { type: "string", default: "20" },
       json: { type: "boolean", default: false },
+      ballot: { type: "string" },
+      status: { type: "string" },
       version: { type: "string" },
+      resource: { type: "string" },
+      workgroup: { type: "string" },
+      impact: { type: "string" },
     },
     allowPositionals: true,
   });
@@ -462,21 +520,35 @@ async function main() {
   const json = values.json as boolean;
   const command = positionals[0];
   const arg = positionals.slice(1).join(" ");
+  
+  // Build filters from options
+  const filters: Partial<SearchFilters> = {};
+  if (values.ballot) filters.ballot = values.ballot as string;
+  if (values.status) filters.status = values.status as string;
+  if (values.version) filters.version = values.version as string;
+  if (values.resource) filters.resource = values.resource as string;
+  if (values.workgroup) filters.workGroup = values.workgroup as string;
+  if (values.impact) filters.impact = values.impact as string;
 
   switch (command) {
     case "fts":
       if (!arg) { console.error("Usage: fts <query>"); return; }
-      fts(arg, limit, json);
+      search({ ...filters, query: arg }, limit, json);
+      break;
+      
+    case "ballot":
+      if (!arg) { console.error("Usage: ballot <key>"); return; }
+      searchBallot(arg, filters, limit, json);
       break;
       
     case "resource":
       if (!arg) { console.error("Usage: resource <name>"); return; }
-      searchResource(arg, limit, json);
+      searchResource(arg, filters, limit, json);
       break;
       
     case "version":
       if (!arg) { console.error("Usage: version <ver>"); return; }
-      searchVersion(arg, limit, json);
+      searchVersion(arg, filters, limit, json);
       break;
       
     case "breaking":
@@ -485,7 +557,7 @@ async function main() {
       
     case "status":
       if (!arg) { console.error("Usage: status <status>"); return; }
-      searchStatus(arg, limit, json);
+      searchStatus(arg, filters, limit, json);
       break;
       
     case "get":
@@ -509,7 +581,7 @@ async function main() {
       
     default:
       // Treat as FTS query
-      fts(positionals.join(" "), limit, json);
+      search({ ...filters, query: positionals.join(" ") }, limit, json);
   }
 }
 
