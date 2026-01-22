@@ -88,32 +88,33 @@ bun run zulip:search --help
 ### Creating a New Release
 
 Releases bundle the pre-indexed SQLite databases for easy distribution. We publish
-separate Jira and Zulip data releases (tags are data-only, not tied to git).
+only moving `jira-latest` and `zulip-latest` releases (tags are data-only, not tied
+to git); the titles include the actual data date.
 
 ```bash
 # Compress databases (zstd gives excellent compression on SQLite)
 zstd -T0 -9 jira/data.db -o jira-data.db.zst
 zstd -T0 -9 zulip/data.db -o zulip-data.db.zst
 
-# Create Jira data release
-JIRA_TAG="jira-2026.01.22"
-gh release create "$JIRA_TAG" \
-  jira-data.db.zst \
-  --title "FHIR Community Search - Jira Data - 2026-01-22" \
-  --notes "Pre-indexed Jira database."
+DATE=$(date -u +%Y-%m-%d)
+NOTES_JIRA=$'Snapshot date (UTC): '"$DATE"$'\\nAsset: jira-data.db.zst (zstd-compressed SQLite)\\nDownload: https://github.com/jmandel/fhir-community-search/releases/download/jira-latest/jira-data.db.zst'
+NOTES_ZULIP=$'Snapshot date (UTC): '"$DATE"$'\\nAsset: zulip-data.db.zst (zstd-compressed SQLite)\\nDownload: https://github.com/jmandel/fhir-community-search/releases/download/zulip-latest/zulip-data.db.zst'
 
-# Update moving Jira tag (create once, then upload with --clobber)
+# Jira latest release (create once if missing, then upload/retitle)
+gh release view jira-latest >/dev/null 2>&1 || \
+  gh release create jira-latest jira-data.db.zst \
+    --title "FHIR Community Search - Jira Data - ${DATE}" \
+    --notes "$NOTES_JIRA"
 gh release upload jira-latest jira-data.db.zst --clobber
+gh release edit jira-latest --title "FHIR Community Search - Jira Data - ${DATE}" --notes "$NOTES_JIRA"
 
-# Create Zulip data release
-ZULIP_TAG="zulip-2026.01.22"
-gh release create "$ZULIP_TAG" \
-  zulip-data.db.zst \
-  --title "FHIR Community Search - Zulip Data - 2026-01-22" \
-  --notes "Pre-indexed Zulip database."
-
-# Update moving Zulip tag (create once, then upload with --clobber)
+# Zulip latest release (create once if missing, then upload/retitle)
+gh release view zulip-latest >/dev/null 2>&1 || \
+  gh release create zulip-latest zulip-data.db.zst \
+    --title "FHIR Community Search - Zulip Data - ${DATE}" \
+    --notes "$NOTES_ZULIP"
 gh release upload zulip-latest zulip-data.db.zst --clobber
+gh release edit zulip-latest --title "FHIR Community Search - Zulip Data - ${DATE}" --notes "$NOTES_ZULIP"
 ```
 
 ### Updating Data
