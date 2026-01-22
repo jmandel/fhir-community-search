@@ -1,0 +1,59 @@
+FHIR-53951 | Major documentation effort: all FHIRPath functions need examples and explicit types
+FHIR-53953 | New section needed: remote interactions documentation (timeouts, errors, caching)
+FHIR-53954 | Policy decision: %factory and %server not mature enough for normative - move to incubator
+FHIR-53960 | Design decision: inconsistent error handling patterns across FHIRPath functions
+FHIR-53979 | New mechanism proposal: capture level of adoption per resource outside frozen spec
+FHIR-53984 | Allow more types for DataRequirement.valueFilter.value[x] - potential breaking change
+FHIR-53999 | Normative impact: href should not reference FHIR resources in narratives
+FHIR-54003 | Structure change: add elements to Bundle.request and Bundle.response for custom headers
+FHIR-54010 | Structure change: add status element to ExtendedContactDetail type
+FHIR-54023 | Highest priority: Requirements.statement.category needs explicit example ValueSet defined
+FHIR-54046 | Cardinality change: SubscriptionTopic.trigger.event should be 0..* to avoid duplication
+FHIR-54049 | SubscriptionTopic cannot indicate required filters/payload - new feature design decision
+FHIR-54057 | Clean up conditional* elements in CapabilityStatement - potential redundancy removal
+FHIR-54062 | Rework startOffset/endOffset constraint - complex constraint relationship design
+FHIR-54069 | Extensive refinements to terminology FHIRPath extensions - substantial changes, has comment
+FHIR-54070 | Subscription.filterBy.comparator redundancy - structural change proposal
+FHIR-54073 | Terminology functions should be fluent - significant API redesign from Brian P
+FHIR-54074 | %server not normative ready, move to incubator - normative status, security concerns
+FHIR-54078 | Type Factory not normative ready, move to incubator - normative status, extensive feedback
+FHIR-54473 | FHIR Mapping Language not ready for normative - major decision on FML placement
+FHIR-54474 | FML source should support FHIRPath expressions - Zulip discussion referenced
+FHIR-54476 | StructureMap doesn't handle property chaining well - structural change to resource
+FHIR-54478 | How can FML groups produce collections - design clarification needed
+FHIR-54479 | Dependent Group parameter variable restrictions - literal params handling unclear
+FHIR-54481 | No official FML text to StructureMap mapping - significant spec gap
+FHIR-54483 | How should FML error messages be reported - design decision needed
+FHIR-54484 | Transform Functions issues (collection) - multiple issues need workgroup review
+FHIR-54486 | Remove FML Tutorial from core spec - content placement decision
+FHIR-54511 | Documents Bundle for DiagnosticReport - new feature, design decision
+FHIR-51091 | ElementDefinition contexts table incomplete for logical models - impacts normative content, waiting for input
+FHIR-51623 | Allow extensions on Bundle root - design change to Bundle structure
+FHIR-53684 | Add "abstract" flag to ImplementationGuide - new feature request impacting resource design
+FHIR-53722 | Deprecated elements should be withdrawn in R6 - major normative decision affecting many resources
+FHIR-53810 | Multiple signature-related tickets not addressed - complex tracking 11 related issues
+FHIR-53850 | Not all CanonicalResource search params defined consistently - large scope across many resources
+FHIR-53900 | Contained Resources open implementer note needs resolution before normative
+FHIR-53901 | Workflow page has open issues section needing resolution before normative
+FHIR-53907 | SearchParameter.expression should define FHIRPath subset - complex proposal needing WG input
+FHIR-53909 | Reference search params vs alternate-reference extension - complex search behavior decision
+FHIR-54613 | Review Required/Extensible bindings in base resources - major cross-resource review, impacts US Core/IPS, spreadsheet provided
+FHIR-54694 | Add OperationDefinition reference to ExampleScenario - new element addition to resource
+FHIR-54703 | Harmonize Procedure.bodyStructure and Observation.bodyStructure - cross-resource harmonization, deprecation decision
+FHIR-54704 | ActorDefinition reference to Profile Canonical - new capability to link actors to profiles
+FHIR-54748 | ExampleScenario.actor overlaps with ActorDefinition - propose removing section and replacing with link
+FHIR-54779 | Spin off StructureMap/Mapping Language to incubator IG - major architectural decision about core content
+FHIR-54783 | Trial use elements in normative resources - standards process question for all-normative R6
+FHIR-54807 | Conflicting statements on breaking changes (R4 normative vs R5) - critical policy alignment
+FHIR-54809 | Claim as "fully normative specification" conflicts with informative pages - normative status clarity
+FHIR-54851 | Review Search Time Zone Content - dragon warning needs committee review and decision
+FHIR-54853 | Finalize 'not' search modifier behavior with or-joined values - behavior definition/prohibition decision
+FHIR-54876 | ServiceRequest.replaces clarification for prolongation/renewal - workflow pattern guidance across multiple resources
+FHIR-54897 | Grouping Laboratory Results preference for Panel resource or grouper - significant design decision
+FHIR-54920 | Index page levels inconsistent (MedDef level 5, Biological Products level 4) - organizational restructuring
+FHIR-54955 | Rule evaluation order undefined in mapping language - specification gap needing definition
+FHIR-55020 | Add status values to List for Observation grouping - tied to FHIR-55019, new use case for List
+FHIR-55368 | Align DiagnosticReport and Composition for FHIR Document bundles - major design change impacting EU/UV lab IGs
+FHIR-36651 | Complex - term-filter modifier proposal with 19 comments, VCL integration, needs TI coordination, designation filter design ongoing
+FHIR-44665 | Design question - equivalent of CodeableReference for canonical resources impacts multiple resources/datatypes
+FHIR-50598 | Behavior change - _outputFormat async bulk vs async interaction disambiguation, marked MovingToGuide, breaks existing clients

@@ -1,0 +1,68 @@
+FHIR-53950 | FHIR Quantity clarifications - units systems, calendar units, duplication with FHIRPath spec
+FHIR-53952 | FHIR specific variables - %profile documentation, move to element definition page
+FHIR-53958 | Additional Functions section reorganization - create Function Overrides subsection
+FHIR-53959 | Additional Functions cleanup - getValue, toString, resolve, hasValue, ofType corrections
+FHIR-53961 | elementDefinition() needs clarification on context, return type, and examples
+FHIR-53962 | slice() function context clarification - should it only be in invariant definitions?
+FHIR-53963 | checkModifiers - add optional recursive flag and make modifier parameter optional
+FHIR-53964 | Equivalence (~) ignoring id for ElementDefinitions - clarify FHIR-specific behavior
+FHIR-53965 | Environment variables section clarifications - %resource duplication, version issues
+FHIR-53966 | Restricted Subset section clarifications - examples and constraint tightening notes
+FHIR-53998 | Clarify multiple _include:iterate parameters - order dependency question
+FHIR-54000 | SearchParameter.base and .target bindings should use extended-resource-types ValueSet
+FHIR-54011 | Clarify bdl-17 constraint wording for document Bundle issues
+FHIR-54016 | Requirements.statement.category needs preferred binding to UTG ValueSet
+FHIR-54029 | Clarify OperationOutcome severity usage - fatal vs error distinction
+FHIR-54030 | OperationOutcome expression for search parameters - update example
+FHIR-54031 | OperationOutcome limited-filter vs self link guidance needs clarification
+FHIR-54053 | Update MessageDefinition bullet point - now normative, needs text refresh
+FHIR-54066 | Align signature.targetFormat between datatypes and JSON signatures page
+FHIR-54067 | Clarify srCms for JSON Signature Requirements - needs examples for commQuals
+FHIR-54068 | Update JSON Signature to JAdES 1.2.1 - version bump, sigT→iat header change
+FHIR-54071 | Range precision inconsistency - constraint uses boundaries but description says infinite precision
+FHIR-54477 | Simple Identity transform - grammar support and heading improvement for FML
+FHIR-54480 | FML grammar doesn't support super simple identity form - grammar/resource gap
+FHIR-54482 | Default value only string type - restore primitive types from R4
+FHIR-54490 | Clarify Attachment.url relative references - what structure is expected
+FHIR-54522 | Timing.repeat.frequency example clarification - meaningWhenMissing vs examples
+FHIR-54529 | CSS link unclear in documents - clarify Binary fullUrl reference
+FHIR-54575 | Update Plans for Future Releases section (references R5) - needs new content but straightforward
+FHIR-54708 | $transform operation runtime parameters - has comments with patterns, needs clarification decision
+FHIR-54749 | Narrative images from Attachments - expand image reference scope beyond Binary/DocumentReference
+FHIR-54753 | Linking between Data and Narrative missing textLink extension reference - add reference/guidance
+FHIR-54755 | Narrative explain how to refer to resources more clearly - clarification with related issue
+FHIR-54763 | Narrative link images to non-contained resources in Document Bundles - scoped enhancement
+FHIR-54862 | Missing value set binding for ProductShelfLife.specialPrecautionsForStorage - needs binding decision
+FHIR-54870 | Permission resource moved to incubator IG - documentation update to ballot-intro
+FHIR-54926 | StructureMap log positioning not shown in source content - documentation clarification
+FHIR-54940 | Clarify target property creation in mapping language - documentation clarification
+FHIR-54952 | Definition formatting conventions unclear in mapping language - add convention documentation
+FHIR-54958 | Mapping language versioning in media types - clarification needed
+FHIR-54962 | Type wrangling and default groups need clarification - documentation improvements
+FHIR-54818 | Remove Confluence link from normative versions section - remove external reference
+FHIR-54924 | Profilelist cleanup needed - verify against FMG list
+FHIR-54968 | 5Ws backbone mappings need guidance - backbone elements lack context
+FHIR-50623 | Content parameter in Subscription.$event - needs clarification on valueset ref and server behavior
+FHIR-50624 | Are SubscriptionStatus eventNumbers sequential? - needs spec clarification
+FHIR-53729 | List narrative content has confusing SHALL/should wording - conformance level clarification
+FHIR-53789 | Clarify "subject of an intervention" language in List scope - wording clarification
+FHIR-53811 | Clarify hasValue() and getValue() FHIRPath functions - continuation of prior ticket with proposed text
+FHIR-53867 | Clarify If-None-Exist handling when conditional create not supported - policy decision
+FHIR-53877 | Clarify HTTP 410 requirements for deleted resources - conformance level clarification
+FHIR-53878 | When would ETag be used on conditional-delete-single? - use case question
+FHIR-53905 | Clarify that only relevant references SHOULD be in FHIR documents - wording refinement
+FHIR-53927 | Clarify mode parameter future support vs normativity - clarification needed
+FHIR-53932 | Do operations directly create history entries? - clarification of seemingly contradictory text
+FHIR-53943 | Operation Validate references removed GraphDefinition - need decision on parameter handling
+FHIR-53944 | "To be Developed" placeholder for Conformance Service link - needs target decision
+FHIR-53948 | Clarify FHIR types in FHIRPath expressions - technical clarification with proposed text
+FHIR-40543 | Waiting for Input - Lloyd trialing tooling changes for suppressing inherited content in snapshot
+FHIR-40644 | Waiting for Input - Grahame drafting language about fhirVersion elements and version compatibility
+FHIR-45021 | Waiting for Input - Range datatype "inclusive" definition unclear for age ranges, needs Grahame's proposal
+FHIR-47614 | Waiting for Input - Jose working with Richard on TestReport redesign proposal
+FHIR-49916 | Waiting for Input - Lloyd needs to draft resolution for maxLength guidance
+FHIR-49961 | Waiting for Input - Lloyd has detailed proposal for CodeableConcept safety checks, needs finalization
+FHIR-49968 | Persuasive with Modification but needs SDC discussion - Expression.reference/expression interdependency clarification
+FHIR-50595 | Question - TestScript maturity level 4 questioned, may need brief discussion to confirm/adjust
+FHIR-50613 | Question - clarify if SubscriptionTopic.trigger can have multiple criteria and their relationship (AND/OR)
+FHIR-50616 | Question - multiple clarification questions about relatedQuery usage in SubscriptionTopic

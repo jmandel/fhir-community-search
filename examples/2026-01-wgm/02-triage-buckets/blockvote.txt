@@ -1,0 +1,81 @@
+FHIR-54713 | Incomplete sentence typo "Servers SHOULD mark the by populating meta.tag" - simple grammar fix
+FHIR-54813 | Broken link to Zachman Framework - simple link fix
+FHIR-54820 | Broken link to Testing Resources - simple link fix
+FHIR-54861 | Missing verb "is" in Requirements Resource intro sentence - simple grammar fix
+FHIR-54869 | NutritionIntake not listed as Workflow Event despite implementing Event pattern - straightforward list addition
+FHIR-54919 | FML mapping tutorial invalid fhirpath missing surrounding brackets - documentation fix
+FHIR-54604 | Apply previously resolved FHIR-48338 narrative changes - already resolved issue needs application
+FHIR-53949 | Terminology fix: replace "operations" with "functions" on FHIRPath page
+FHIR-53956 | FHIRPath page heading levels need promotion - editorial structure fix
+FHIR-53980 | Incomplete sentence in HTTP capabilities section needs completion
+FHIR-53982 | Rename Procedure.performedPeriod to occurrence[x] in DataRequirement CQL example
+FHIR-53985 | Remove or note deprecation of Bundle.entry.mode=outcome references on Search page
+FHIR-53986 | Add date and quantity to search prefix documentation (currently only mentions number)
+FHIR-53987 | Minor formatting: use inline quote for vertical pipe character and fix capitalization
+FHIR-53992 | Remove duplicate paragraph in ImplementationGuide section 5.9.4.3
+FHIR-54001 | Clarify bdl-16 constraint applies to Bundle.issues element
+FHIR-54006 | Remove deprecated "outcome" mode from Bundle.total description
+FHIR-54015 | Move Requirements.statement.category definition content to comments field
+FHIR-54022 | Standardize spelling of "payer" across FHIR-I content (related to FM tracker)
+FHIR-54038 | Update AllOk OperationOutcome example to use new "success" severity and code
+FHIR-54048 | Fix misleading statement that FHIR requires narrative - it only suggests them
+FHIR-54050 | Update cpb-4 explanation from "should" to "SHALL" - wording alignment with constraint
+FHIR-54051 | Subdivide canonical identifiers section for readability - editorial reorganization
+FHIR-54054 | Fix _include:iterate example - clear error (Medication should be MedicationDispense)
+FHIR-54058 | Update Timing example table for start/endOffset - documentation example corrections
+FHIR-54079 | Add examples comparing terminology subsumes factory vs function - documentation addition
+FHIR-54084 | FHIRpath resolve() should include URI example - simple documentation addition
+FHIR-54166 | Complete TODO for additional resource contents - remove incomplete placeholder
+FHIR-54174 | Update reference to latest FHIRPath specification version - simple reference update
+FHIR-54403 | Example not showing in search combining section - rendering bug fix
+FHIR-54404 | Several typos on search and filter pages - straightforward typo corrections
+FHIR-54489 | Version Diff for Codes broken (level>1 codes) - tooling/rendering bug fix
+FHIR-54520 | Error in Timing example - "Every second day" period should be 2
+FHIR-54558 | Code does not provide meaning - cleanup outdated wording in datatypes
+FHIR-50621 | Subscription workflow diagrams reference old Bundle.type: history instead of subscription-notification - clear fix
+FHIR-50625 | Event numbering section conflicts with examples about eventNumber optionality - consistency fix
+FHIR-50626 | query-status SubscriptionStatus shouldn't have notificationEvent - clear technical correction
+FHIR-50628 | Minor typo REST-hook vs rest-hook capitalization - editorial
+FHIR-51077 | Multiple clear errors in search range table - typos, wrong date examples
+FHIR-53244 | Create preamble for 11073 mappings - Dev WG offered to handle, simple editorial
+FHIR-53690 | Requirements.actor.key should be mandatory - obvious logical fix
+FHIR-53691 | Link to Citation Resource broken - simple link fix
+FHIR-53764 | spd-2 invariant should also allow 'resource' param type for chain - clear technical correction
+FHIR-53766 | Jurisdiction elements still have deprecation note but no longer deprecated - cleanup
+FHIR-53788 | "processsing" spelling error - typo fix
+FHIR-53790 | MetadataResource "the the" typo - already resolved Persuasive
+FHIR-53791 | FHIRPath Patch grammar "a not a valid" - simple grammar fix
+FHIR-53868 | Broken links to Asynchronous Interaction Request Pattern - link fix
+FHIR-53898 | Link to Testing Incubator broken - link fix
+FHIR-53926 | List HTTP 303 as response for Create interaction - simple documentation addition
+FHIR-53945 | FHIRPath additions should reference Questionnaire page - cross-reference addition
+FHIR-53947 | FHIRPath intro section improvements - editorial/documentation enhancements
+FHIR-43032 | Persuasive with Modification already resolved - mechanism for associating profile with logical model, resolution text defined
+FHIR-47470 | Persuasive - add preferred ValueSet for Bundle.link, non-substantive clarification
+FHIR-47994 | Technical corrections PR already accepted by product director, needs rubber stamp
+FHIR-50448 | Simple typo - extra bullet at end of list
+FHIR-50449 | Simple typo - missing "s" in "verion" should be "version"
+FHIR-50460 | Technical correction - "NE" flag mentioned but not defined in key
+FHIR-50466 | Technical correction - BackboneType inheritance not shown in Structure table
+FHIR-50467 | Technical correction - RelativeTime not listed as BackboneType
+FHIR-50468 | Technical correction - fix broken link for Data Absent Reason extension
+FHIR-50491 | Technical correction - update deprecated search.mode "outcome" references to use Bundle.issues
+FHIR-50493 | Technical correction - remove outdated text about reference parameter type pointing to Resource
+FHIR-50521 | Technical correction - TestScript constraints tst-1/2/3 have incorrect FHIRPath expressions (xor logic error)
+FHIR-50561 | Technical correction - add RelativeTime to BackboneType list (duplicate of FHIR-50467)
+FHIR-50568 | Technical correction - fix XML closing tag from </Bundle> to </Basic> in example
+FHIR-50569 | Simple typo - CapabilityStatements to CapabilityStatement
+FHIR-50571 | Simple typo - "mlutipled" should be "multiplied"
+FHIR-50572 | Editorial - change "must" to "SHALL" for conformance language
+FHIR-50575 | Technical correction - update LOINC display to official Long Common Name
+FHIR-50578 | Editorial clarification - mention cross-version extensions for modifier elements are modifier extensions
+FHIR-50584 | Technical correction - SampledData comments are outdated (reference removed fields/resources)
+FHIR-50585 | Technical correction - constraint qty-4 should check for UCUM system before validating code format
+FHIR-50586 | Tooling issue - constraints box missing for RelativeTime and SampledData on main page
+FHIR-50589 | Technical correction - _list example should not escape the $ character
+FHIR-50596 | Simple typo - "managable" should be "manageable"
+FHIR-50599 | Technical correction - $add operation example uses non-existent "actual" element
+FHIR-50604 | Simple typo - extra "s" making "requirements" plural incorrectly
+FHIR-50615 | Technical correction - links in SubscriptionTopic not rendering as hyperlinks
+FHIR-50618 | Collection of minor typos in SubscriptionTopic (servers, capitalization, "With")
+FHIR-50620 | Collection of minor typos in Subscription Resource (missing word, extra "the", formatting)
