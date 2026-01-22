@@ -5,15 +5,19 @@ Search HL7 FHIR specification issues (Jira) and community discussions (Zulip) us
 ## Setup
 
 ```bash
-# Clone repository
-git clone https://github.com/jmandel/fhir-community-search
-cd fhir-community-search
+# Download repository zip via GitHub API (no git required)
+curl -L "https://api.github.com/repos/jmandel/fhir-community-search/zipball" -o fhir-community-search.zip
+unzip fhir-community-search.zip
+cd jmandel-fhir-community-search-*
+
+# Install Bun if needed, then install dependencies
+# https://bun.sh/docs/installation
 bun install
 
 # Download pre-indexed databases (~380 MB compressed, ~2 GB uncompressed)
 # Use moving "latest" tags maintained per data stream.
-curl -L "https://github.com/jmandel/fhir-community-search/releases/download/jira-latest/jira-data.db.zst" | zstd -d -o jira/data.db
-curl -L "https://github.com/jmandel/fhir-community-search/releases/download/zulip-latest/zulip-data.db.zst" | zstd -d -o zulip/data.db
+curl -L "https://github.com/jmandel/fhir-community-search/releases/download/jira-latest/jira-data.db.gz" | gzip -dc > jira/data.db
+curl -L "https://github.com/jmandel/fhir-community-search/releases/download/zulip-latest/zulip-data.db.gz" | gzip -dc > zulip/data.db
 ```
 
 ## Data Sources

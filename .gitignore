@@ -6,3 +6,4 @@ node_modules/
 cookies.txt
 *.db
 *.db.zst
+*.db.gz
