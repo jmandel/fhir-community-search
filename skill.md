@@ -66,6 +66,11 @@ bun run zulip:search fts "your query"
 bun run jira:search snapshot FHIR-XXXXX
 bun run zulip:search snapshot stream "topic name"
 
+# If you need multiple snapshots, run them in a single shell command
+# to avoid extra back-and-forth:
+# bun run jira:search snapshot FHIR-12345; bun run jira:search snapshot FHIR-67890
+# bun run zulip:search snapshot "stream" "topic A" && bun run zulip:search snapshot "stream" "topic B"
+
 # Help
 bun run jira:search --help
 bun run zulip:search --help
