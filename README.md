@@ -87,20 +87,33 @@ bun run zulip:search --help
 
 ### Creating a New Release
 
-Releases bundle the pre-indexed SQLite databases for easy distribution.
+Releases bundle the pre-indexed SQLite databases for easy distribution. We publish
+separate Jira and Zulip data releases (tags are data-only, not tied to git).
 
 ```bash
 # Compress databases (zstd gives excellent compression on SQLite)
 zstd -T0 -9 jira/data.db -o jira-data.db.zst
 zstd -T0 -9 zulip/data.db -o zulip-data.db.zst
 
-# Create release with GitHub CLI
-export GH_TOKEN="your_github_pat"
-gh release create v2025.01 \
+# Create Jira data release
+JIRA_TAG="jira-2026.01.22"
+gh release create "$JIRA_TAG" \
   jira-data.db.zst \
+  --title "FHIR Community Search - Jira Data - 2026-01-22" \
+  --notes "Pre-indexed Jira database."
+
+# Update moving Jira tag (create once, then upload with --clobber)
+gh release upload jira-latest jira-data.db.zst --clobber
+
+# Create Zulip data release
+ZULIP_TAG="zulip-2026.01.22"
+gh release create "$ZULIP_TAG" \
   zulip-data.db.zst \
-  --title "FHIR Community Search Data - January 2025" \
-  --notes "Pre-indexed databases. See README for setup."
+  --title "FHIR Community Search - Zulip Data - 2026-01-22" \
+  --notes "Pre-indexed Zulip database."
+
+# Update moving Zulip tag (create once, then upload with --clobber)
+gh release upload zulip-latest zulip-data.db.zst --clobber
 ```
 
 ### Updating Data

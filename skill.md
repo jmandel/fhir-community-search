@@ -11,8 +11,9 @@ cd fhir-community-search
 bun install
 
 # Download pre-indexed databases (~380 MB compressed, ~2 GB uncompressed)
-curl -L https://github.com/jmandel/fhir-community-search/releases/latest/download/jira-data.db.zst | zstd -d -o jira/data.db
-curl -L https://github.com/jmandel/fhir-community-search/releases/latest/download/zulip-data.db.zst | zstd -d -o zulip/data.db
+# Use moving "latest" tags maintained per data stream.
+curl -L "https://github.com/jmandel/fhir-community-search/releases/download/jira-latest/jira-data.db.zst" | zstd -d -o jira/data.db
+curl -L "https://github.com/jmandel/fhir-community-search/releases/download/zulip-latest/zulip-data.db.zst" | zstd -d -o zulip/data.db
 ```
 
 ## Data Sources

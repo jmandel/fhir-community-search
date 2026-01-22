@@ -8,6 +8,7 @@
  *   bun run jira/download.ts --cookie "JSESSIONID=xxx; seraph.rememberme.cookie=xxx"
  *   bun run jira/download.ts --cookie-file cookies.txt
  *   bun run jira/download.ts --cookie-file cookies.txt --resume
+ *   bun run jira/download.ts --cookie-file cookies.txt --since-last
  */
 
 import { Database } from "bun:sqlite";
@@ -111,10 +112,11 @@ function parseCookies(cookieStr: string): string {
 async function fetchBatch(
   startAt: number,
   cookies: string,
+  jql: string,
   maxResults = 100
 ): Promise<SearchResponse> {
   const params = new URLSearchParams({
-    jql: "project=FHIR ORDER BY key ASC",
+    jql,
     startAt: startAt.toString(),
     maxResults: maxResults.toString(),
     fields: FIELDS,
@@ -306,6 +308,35 @@ function getResumePoint(db: Database): number {
   return result?.cnt || 0;
 }
 
+function getLastUpdatedTimestamp(db: Database): string | null {
+  const result = db
+    .query("SELECT MAX(json_extract(data, '$.updated_at')) as updated_at FROM issues")
+    .get() as any;
+  return result?.updated_at || null;
+}
+
+function formatJqlDate(value: string | Date): string {
+  const date = typeof value === "string" ? new Date(value) : value;
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid updated_at timestamp: ${value}`);
+  }
+  const yyyy = date.getUTCFullYear();
+  const mm = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const dd = String(date.getUTCDate()).padStart(2, "0");
+  const hh = String(date.getUTCHours()).padStart(2, "0");
+  const min = String(date.getUTCMinutes()).padStart(2, "0");
+  return `${yyyy}-${mm}-${dd} ${hh}:${min}`;
+}
+
+function subtractHours(timestamp: string, hours: number): Date {
+  const date = new Date(timestamp);
+  if (Number.isNaN(date.getTime())) {
+    throw new Error(`Invalid updated_at timestamp: ${timestamp}`);
+  }
+  date.setTime(date.getTime() - hours * 60 * 60 * 1000);
+  return date;
+}
+
 function insertIssue(db: Database, issue: JiraIssue) {
   const doc = transformIssue(issue);
   const json = JSON.stringify(doc);
@@ -357,6 +388,8 @@ async function main() {
       "cookie-file": { type: "string" },
       output: { type: "string", default: new URL("./data.db", import.meta.url).pathname },
       resume: { type: "boolean", default: false },
+      "since-last": { type: "boolean", default: false },
+      "changes-since-last-db-generation": { type: "boolean", default: false },
     },
   });
 
@@ -370,15 +403,46 @@ async function main() {
     console.error("Usage: bun run jira/download.ts --cookie 'JSESSIONID=...'");
     console.error("   or: bun run jira/download.ts --cookie-file cookies.txt");
     console.error("   Add --resume to continue an interrupted download");
+    console.error("   Add --since-last to fetch updates since last DB generation");
     process.exit(1);
   }
 
   cookies = parseCookies(cookies);
-  const dbPath = values.output as string;
+  const sinceLast =
+    (values["since-last"] as boolean) ||
+    (values["changes-since-last-db-generation"] as boolean);
   const resume = values.resume as boolean;
+  const dbPath = values.output as string;
+
+  if (sinceLast && resume) {
+    console.error("Choose one of --resume or --since-last, not both.");
+    process.exit(1);
+  }
+
+  let jql = "project=FHIR ORDER BY key ASC";
+
+  if (sinceLast) {
+    if (!existsSync(dbPath)) {
+      console.error(`No existing database found at ${dbPath}.`);
+      console.error("Run without --since-last to create a fresh database.");
+      process.exit(1);
+    }
+    const existingDb = openDatabaseForResume(dbPath);
+    const lastUpdated = getLastUpdatedTimestamp(existingDb);
+    existingDb.close();
+    if (!lastUpdated) {
+      console.error("No updated_at timestamps found in the existing database.");
+      console.error("Run without --since-last to create a fresh database.");
+      process.exit(1);
+    }
+    const sinceDate = subtractHours(lastUpdated, 1);
+    const since = formatJqlDate(sinceDate);
+    jql = `project=FHIR AND updated >= "${since}" ORDER BY updated ASC, key ASC`;
+    console.log(`Incremental mode: updated >= "${since}" (UTC, includes 1h overlap)`);
+  }
 
   console.log("Testing connection...");
-  const testResponse = await fetchBatch(0, cookies, 1);
+  const testResponse = await fetchBatch(0, cookies, jql, 1);
   const total = testResponse.total;
   console.log(`Total issues available: ${total}`);
 
@@ -390,6 +454,9 @@ async function main() {
     db = openDatabaseForResume(dbPath);
     startAt = getResumePoint(db);
     console.log(`Already have ${startAt} issues, resuming from there...`);
+  } else if (sinceLast) {
+    console.log(`Opening existing database for incremental updates: ${dbPath}`);
+    db = openDatabaseForResume(dbPath);
   } else {
     console.log(`Creating fresh database: ${dbPath}`);
     db = createDatabase(dbPath);
@@ -401,7 +468,7 @@ async function main() {
   
   while (startAt < total) {
     try {
-      const response = await fetchBatch(startAt, cookies, batchSize);
+      const response = await fetchBatch(startAt, cookies, jql, batchSize);
       
       db.exec("BEGIN");
       for (const issue of response.issues) {
@@ -433,14 +500,24 @@ async function main() {
 
   // Print stats
   const issueCount = db.query("SELECT COUNT(*) as cnt FROM issues").get() as any;
-  
+
   console.log("\n\n✅ Done!");
-  console.log(`   Issues: ${issueCount.cnt}/${total}`);
+  if (sinceLast) {
+    console.log(`   Updated issues: ${startAt}/${total}`);
+    console.log(`   Database issues: ${issueCount.cnt}`);
+  } else {
+    console.log(`   Issues: ${issueCount.cnt}/${total}`);
+  }
   console.log(`   Database: ${dbPath}`);
-  
-  if (issueCount.cnt < total) {
+
+  if (!sinceLast && issueCount.cnt < total) {
     console.log(`\n⚠️  Download incomplete! Missing ${total - issueCount.cnt} issues.`);
     console.log(`   Get fresh cookies and run with --resume to continue.`);
+  }
+
+  if (sinceLast && startAt < total) {
+    console.log(`\n⚠️  Incremental update incomplete! Missing ${total - startAt} issues.`);
+    console.log(`   Get fresh cookies and rerun with --since-last.`);
   }
 
   db.close();
