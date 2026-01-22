@@ -16,34 +16,34 @@ This group contains 5 issues addressing conformance resources, profiling mechani
 ### ElementDefinition & Logical Models
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-51091 | ElementDefinition contexts table incomplete | Anchor | Logical models need own column; minValue/maxValue prohibited incorrectly |
+| [FHIR-51091](../03-meeting-analyses/FHIR-51091.md) | ElementDefinition contexts table incomplete | Anchor | Logical models need own column; minValue/maxValue prohibited incorrectly |
 
 ### ImplementationGuide
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-53684 | Add "abstract" flag to ImplementationGuide | Satellite | IGs as building blocks vs direct implementation |
+| [FHIR-53684](../03-meeting-analyses/FHIR-53684.md) | Add "abstract" flag to ImplementationGuide | Satellite | IGs as building blocks vs direct implementation |
 
 ### CanonicalResource Consistency
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-53850 | CanonicalResource search parameters inconsistent | Anchor | Interface says "all" but many resources missing params |
+| [FHIR-53850](../03-meeting-analyses/FHIR-53850.md) | CanonicalResource search parameters inconsistent | Anchor | Interface says "all" but many resources missing params |
 
 ### CapabilityStatement
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-54057 | Clean up conditional* elements | Satellite | Redundant with new interaction codes |
+| [FHIR-54057](../03-meeting-analyses/FHIR-54057.md) | Clean up conditional* elements | Satellite | Redundant with new interaction codes |
 
 ### Vocabulary Bindings
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-54613 | Review Required/Extensible bindings | Anchor | Systematic review requested; US Core/international impact |
+| [FHIR-54613](../03-meeting-analyses/FHIR-54613.md) | Review Required/Extensible bindings | Anchor | Systematic review requested; US Core/international impact |
 
 ## Suggested Discussion Order
-1. **FHIR-51091** - ElementDefinition table (Lloyd to draft additions)
-2. **FHIR-53850** - CanonicalResource search params (may need cross-WG)
-3. **FHIR-54613** - Binding review (may need dedicated sub-group)
-4. **FHIR-54057** - CapabilityStatement cleanup (straightforward)
-5. **FHIR-53684** - IG abstract flag (design discussion)
+1. **[FHIR-51091](../03-meeting-analyses/FHIR-51091.md)** - ElementDefinition table (Lloyd to draft additions)
+2. **[FHIR-53850](../03-meeting-analyses/FHIR-53850.md)** - CanonicalResource search params (may need cross-WG)
+3. **[FHIR-54613](../03-meeting-analyses/FHIR-54613.md)** - Binding review (may need dedicated sub-group)
+4. **[FHIR-54057](../03-meeting-analyses/FHIR-54057.md)** - CapabilityStatement cleanup (straightforward)
+5. **[FHIR-53684](../03-meeting-analyses/FHIR-53684.md)** - IG abstract flag (design discussion)
 
 ## Cross-Theme Dependencies
 - **Search Quarter**: CanonicalResource search params relate to search semantics

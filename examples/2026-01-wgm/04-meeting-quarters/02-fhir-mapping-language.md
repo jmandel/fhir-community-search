@@ -17,35 +17,35 @@ This group contains 11 issues addressing the maturity and specification quality 
 
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-54473 | FML not ready for normative | Anchor | Proposes moving to incubator or separate spec like FHIRPath |
-| FHIR-54779 | Move StructureMap/FML to Additional Resource IG | Anchor | Claims limited adoption, partial library support |
-| FHIR-54486 | Remove FML tutorial from core spec | Satellite | Tutorial is anomalous in spec; better in IG |
+| [FHIR-54473](../03-meeting-analyses/FHIR-54473.md) | FML not ready for normative | Anchor | Proposes moving to incubator or separate spec like FHIRPath |
+| [FHIR-54779](../03-meeting-analyses/FHIR-54779.md) | Move StructureMap/FML to Additional Resource IG | Anchor | Claims limited adoption, partial library support |
+| [FHIR-54486](../03-meeting-analyses/FHIR-54486.md) | Remove FML tutorial from core spec | Satellite | Tutorial is anomalous in spec; better in IG |
 
 ### Specification Gaps
 **Interdependency:** These issues identify missing or unclear specification content that affects implementers.
 
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-54481 | No official FML to StructureMap mapping | Anchor | Only HAPI implementation defines parsing |
-| FHIR-54484 | Transform functions documentation issues | Satellite | Missing types, examples, duplicate entries |
-| FHIR-54483 | Error reporting format (FML vs StructureMap location) | Satellite | No guidance on error message locations |
-| FHIR-54955 | Rule evaluation order undefined | Satellite | first/last list options unclear |
+| [FHIR-54481](../03-meeting-analyses/FHIR-54481.md) | No official FML to StructureMap mapping | Anchor | Only HAPI implementation defines parsing |
+| [FHIR-54484](../03-meeting-analyses/FHIR-54484.md) | Transform functions documentation issues | Satellite | Missing types, examples, duplicate entries |
+| [FHIR-54483](../03-meeting-analyses/FHIR-54483.md) | Error reporting format (FML vs StructureMap location) | Satellite | No guidance on error message locations |
+| [FHIR-54955](../03-meeting-analyses/FHIR-54955.md) | Rule evaluation order undefined | Satellite | first/last list options unclear |
 
 ### Language Feature Gaps
 **Interdependency:** These propose enhancements to FML capabilities.
 
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-54474 | Source should allow FHIRPath expression | Satellite | Can't split comma-separated values |
-| FHIR-54476 | StructureMap property chaining representation | Satellite | How does a.b.c translate to StructureMap? |
-| FHIR-54478 | How can groups produce collections? | Satellite | Unclear if groups can output multiple resources |
-| FHIR-54479 | Dependent group parameter variable restrictions | Satellite | Literal/FHIRPath expression handling unclear |
+| [FHIR-54474](../03-meeting-analyses/FHIR-54474.md) | Source should allow FHIRPath expression | Satellite | Can't split comma-separated values |
+| [FHIR-54476](../03-meeting-analyses/FHIR-54476.md) | StructureMap property chaining representation | Satellite | How does a.b.c translate to StructureMap? |
+| [FHIR-54478](../03-meeting-analyses/FHIR-54478.md) | How can groups produce collections? | Satellite | Unclear if groups can output multiple resources |
+| [FHIR-54479](../03-meeting-analyses/FHIR-54479.md) | Dependent group parameter variable restrictions | Satellite | Literal/FHIRPath expression handling unclear |
 
 ## Suggested Discussion Order
-1. **Start with FHIR-54473 and FHIR-54779** - Decide location: core normative, separate spec, or incubator
-2. **Then FHIR-54481** - If staying, must define FML-to-StructureMap mapping
+1. **Start with [FHIR-54473](../03-meeting-analyses/FHIR-54473.md) and [FHIR-54779](../03-meeting-analyses/FHIR-54779.md)** - Decide location: core normative, separate spec, or incubator
+2. **Then [FHIR-54481](../03-meeting-analyses/FHIR-54481.md)** - If staying, must define FML-to-StructureMap mapping
 3. **Then feature/documentation issues** - Prioritize based on location decision
-4. **Finally FHIR-54486** - Tutorial location follows overall decision
+4. **Finally [FHIR-54486](../03-meeting-analyses/FHIR-54486.md)** - Tutorial location follows overall decision
 
 ## Cross-Theme Dependencies
 - **FHIRPath Quarter**: FML uses FHIRPath; FHIRPath maturity affects FML

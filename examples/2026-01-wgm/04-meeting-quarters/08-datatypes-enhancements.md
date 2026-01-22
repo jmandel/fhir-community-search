@@ -19,23 +19,23 @@ This group contains 6 issues proposing enhancements to data types and specific r
 
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-44665 | CodeableCanonical for canonical resources | Anchor | Device.definition needs code OR canonical; no datatype exists |
-| FHIR-53984 | DataRequirement.valueFilter types | Satellite | Only has date types; description says "non-date" |
-| FHIR-54010 | Add status to ExtendedContactDetail | Satellite | Currently only period indicates active/inactive |
-| FHIR-54023 | Requirements.statement.category ValueSet | Satellite | Example binding but no example ValueSet defined |
-| FHIR-54062 | Rework Timing offset constraints | Satellite | startOffset/endOffset math relationship unclear |
-| FHIR-54703 | Harmonize Procedure/Observation bodyStructure | Anchor | Different datatypes, deprecation approaches between resources |
+| [FHIR-44665](../03-meeting-analyses/FHIR-44665.md) | CodeableCanonical for canonical resources | Anchor | Device.definition needs code OR canonical; no datatype exists |
+| [FHIR-53984](../03-meeting-analyses/FHIR-53984.md) | DataRequirement.valueFilter types | Satellite | Only has date types; description says "non-date" |
+| [FHIR-54010](../03-meeting-analyses/FHIR-54010.md) | Add status to ExtendedContactDetail | Satellite | Currently only period indicates active/inactive |
+| [FHIR-54023](../03-meeting-analyses/FHIR-54023.md) | Requirements.statement.category ValueSet | Satellite | Example binding but no example ValueSet defined |
+| [FHIR-54062](../03-meeting-analyses/FHIR-54062.md) | Rework Timing offset constraints | Satellite | startOffset/endOffset math relationship unclear |
+| [FHIR-54703](../03-meeting-analyses/FHIR-54703.md) | Harmonize Procedure/Observation bodyStructure | Anchor | Different datatypes, deprecation approaches between resources |
 
 ## Suggested Discussion Order
-1. **FHIR-44665** - CodeableCanonical (design decision needed)
-2. **FHIR-54703** - bodyStructure harmonization (cross-resource consistency)
-3. **FHIR-53984** - DataRequirement.valueFilter (likely straightforward)
-4. **FHIR-54062** - Timing offsets (may need clinical input)
-5. **FHIR-54010** - ExtendedContactDetail status
-6. **FHIR-54023** - Requirements.statement.category
+1. **[FHIR-44665](../03-meeting-analyses/FHIR-44665.md)** - CodeableCanonical (design decision needed)
+2. **[FHIR-54703](../03-meeting-analyses/FHIR-54703.md)** - bodyStructure harmonization (cross-resource consistency)
+3. **[FHIR-53984](../03-meeting-analyses/FHIR-53984.md)** - DataRequirement.valueFilter (likely straightforward)
+4. **[FHIR-54062](../03-meeting-analyses/FHIR-54062.md)** - Timing offsets (may need clinical input)
+5. **[FHIR-54010](../03-meeting-analyses/FHIR-54010.md)** - ExtendedContactDetail status
+6. **[FHIR-54023](../03-meeting-analyses/FHIR-54023.md)** - Requirements.statement.category
 
 ## Cross-Theme Dependencies
-- **Conformance Quarter**: FHIR-44665 relates to canonical resource patterns
+- **Conformance Quarter**: [FHIR-44665](../03-meeting-analyses/FHIR-44665.md) relates to canonical resource patterns
 - **Laboratory Quarter**: bodyStructure affects diagnostic reporting
 
 ## Key Decision Points

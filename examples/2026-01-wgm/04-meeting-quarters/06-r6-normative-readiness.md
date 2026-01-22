@@ -15,34 +15,34 @@ This group contains 7 issues addressing the overall quality and readiness of R6 
 ### Deprecated Elements
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-53722 | Deprecated elements should be withdrawn in R6 | Anchor | Lists 17+ deprecated elements still present |
+| [FHIR-53722](../03-meeting-analyses/FHIR-53722.md) | Deprecated elements should be withdrawn in R6 | Anchor | Lists 17+ deprecated elements still present |
 
 ### Open Issues in Spec
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-53900 | Contained resources open question | Satellite | "Is this a problem?" note should be resolved |
-| FHIR-53901 | Workflow page open issues | Satellite | Section 15.8.2 has unresolved questions |
+| [FHIR-53900](../03-meeting-analyses/FHIR-53900.md) | Contained resources open question | Satellite | "Is this a problem?" note should be resolved |
+| [FHIR-53901](../03-meeting-analyses/FHIR-53901.md) | Workflow page open issues | Satellite | Section 15.8.2 has unresolved questions |
 
 ### Normative Evolution
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-54783 | Trial use elements in normative resources | Anchor | How can normative resources evolve? |
-| FHIR-53979 | Capture adoption level per resource | Satellite | FMM goes away; need adoption tracking |
+| [FHIR-54783](../03-meeting-analyses/FHIR-54783.md) | Trial use elements in normative resources | Anchor | How can normative resources evolve? |
+| [FHIR-53979](../03-meeting-analyses/FHIR-53979.md) | Capture adoption level per resource | Satellite | FMM goes away; need adoption tracking |
 
 ### Ballot Roadmap Clarity
 **Interdependency:** Both issues concern the ballot-intro.html page and should be discussed together.
 
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-54807 | Conflicting statements on breaking changes | Anchor | R4 normative vs R5 changes contradiction |
-| FHIR-54809 | "Fully normative" claim vs informative content | Satellite | Informative pages exist; claim is imprecise |
+| [FHIR-54807](../03-meeting-analyses/FHIR-54807.md) | Conflicting statements on breaking changes | Anchor | R4 normative vs R5 changes contradiction |
+| [FHIR-54809](../03-meeting-analyses/FHIR-54809.md) | "Fully normative" claim vs informative content | Satellite | Informative pages exist; claim is imprecise |
 
 ## Suggested Discussion Order
-1. **FHIR-54807 + FHIR-54809** - Clarify ballot roadmap language first
-2. **FHIR-53722** - Deprecated elements decision (may have timeline impact)
-3. **FHIR-54783** - Trial use in normative mechanism (strategic)
-4. **FHIR-53900 + FHIR-53901** - Resolve open issue notes
-5. **FHIR-53979** - Adoption tracking (may defer to post-R6)
+1. **[FHIR-54807](../03-meeting-analyses/FHIR-54807.md) + [FHIR-54809](../03-meeting-analyses/FHIR-54809.md)** - Clarify ballot roadmap language first
+2. **[FHIR-53722](../03-meeting-analyses/FHIR-53722.md)** - Deprecated elements decision (may have timeline impact)
+3. **[FHIR-54783](../03-meeting-analyses/FHIR-54783.md)** - Trial use in normative mechanism (strategic)
+4. **[FHIR-53900](../03-meeting-analyses/FHIR-53900.md) + [FHIR-53901](../03-meeting-analyses/FHIR-53901.md)** - Resolve open issue notes
+5. **[FHIR-53979](../03-meeting-analyses/FHIR-53979.md)** - Adoption tracking (may defer to post-R6)
 
 ## Cross-Theme Dependencies
 - **FHIRPath Quarter**: %factory/%server maturity is part of this discussion

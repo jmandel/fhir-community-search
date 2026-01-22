@@ -4,16 +4,16 @@ This document organizes 59 complex ballot issues into thematic groups suitable f
 
 | Quarter | Theme | # Issues | Key Interdependencies |
 |---------|-------|----------|----------------------|
-| 01 | FHIRPath Normative Readiness | 8 | All Brian Postlethwaite issues; %factory/%server maturity decision drives all |
-| 02 | FHIR Mapping Language (FML) | 11 | FML location decision (core/incubator/separate) drives all others |
-| 03 | Search & Query Semantics | 5 | Term-filter/VCL is anchor; FHIRPath subset affects implementations |
-| 04 | Bundle, Documents & Signatures | 6 | DiagnosticReport as document base (55368+54511); signature tickets (53810) |
-| 05 | Subscriptions & Async Patterns | 4 | SubscriptionTopic enhancements; async _outputFormat |
-| 06 | R6 Normative Readiness | 7 | Deprecated elements; trial-use in normative; ballot roadmap clarity |
-| 07 | Conformance & Profiling | 5 | ElementDefinition logical models; CanonicalResource search params; bindings |
-| 08 | Data Types & Resource Enhancements | 6 | CodeableCanonical; bodyStructure harmonization; various element additions |
-| 09 | Definitional Resources | 3 | ExampleScenario.actor overlap with ActorDefinition |
-| 10 | Laboratory Reporting | 2 | Panel representation; List for grouping (primarily O&O issue) |
+| [01](01-fhirpath-normative-readiness.md) | FHIRPath Normative Readiness | 8 | All Brian Postlethwaite issues; %factory/%server maturity decision drives all |
+| [02](02-fhir-mapping-language.md) | FHIR Mapping Language (FML) | 11 | FML location decision (core/incubator/separate) drives all others |
+| [03](03-search-query-semantics.md) | Search & Query Semantics | 5 | Term-filter/VCL is anchor; FHIRPath subset affects implementations |
+| [04](04-bundle-documents-signatures.md) | Bundle, Documents & Signatures | 6 | DiagnosticReport as document base (55368+54511); signature tickets (53810) |
+| [05](05-subscriptions-async.md) | Subscriptions & Async Patterns | 4 | SubscriptionTopic enhancements; async _outputFormat |
+| [06](06-r6-normative-readiness.md) | R6 Normative Readiness | 7 | Deprecated elements; trial-use in normative; ballot roadmap clarity |
+| [07](07-conformance-profiling.md) | Conformance & Profiling | 5 | ElementDefinition logical models; CanonicalResource search params; bindings |
+| [08](08-datatypes-enhancements.md) | Data Types & Resource Enhancements | 6 | CodeableCanonical; bodyStructure harmonization; various element additions |
+| [09](09-definitional-resources.md) | Definitional Resources | 3 | ExampleScenario.actor overlap with ActorDefinition |
+| [10](10-laboratory-reporting.md) | Laboratory Reporting | 2 | Panel representation; List for grouping (primarily O&O issue) |
 
 ## Unclustered Issues
 

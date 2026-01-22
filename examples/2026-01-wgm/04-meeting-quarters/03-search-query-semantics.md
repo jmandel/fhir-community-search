@@ -4,7 +4,7 @@
 This group contains 5 issues addressing FHIR search functionality: terminology-aware filtering, FHIRPath subset for search parameters, reference extension handling, timezone semantics, and the :not modifier behavior. These issues affect how implementers build search capabilities and how clients can reliably query FHIR servers.
 
 ## Expertise Needed
-- **Josh Mandel** (Original reporter of FHIR-36651, search/terminology expertise)
+- **Josh Mandel** (Original reporter of [FHIR-36651](../03-meeting-analyses/FHIR-36651.md), search/terminology expertise)
 - **Michael Lawley** (VCL proposal author, CSIRO terminology expert)
 - **James Jahns** (Reporter of multiple search issues, server implementer)
 - **Gino Canessa** (Search/subscription expert)
@@ -16,30 +16,30 @@ This group contains 5 issues addressing FHIR search functionality: terminology-a
 ### Terminology-Aware Search
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-36651 | Define term-filter modifier for token type | Anchor | Long-standing (2022), VCL proposal, designation filtering |
+| [FHIR-36651](../03-meeting-analyses/FHIR-36651.md) | Define term-filter modifier for token type | Anchor | Long-standing (2022), VCL proposal, designation filtering |
 
 ### Search Parameter Definition
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-53907 | Define FHIRPath subset for SearchParameter.expression | Anchor | What FHIRPath features should search params use? |
-| FHIR-53909 | Reference search params with alternate-reference extension | Satellite | How do searches handle Additional Resource references? |
+| [FHIR-53907](../03-meeting-analyses/FHIR-53907.md) | Define FHIRPath subset for SearchParameter.expression | Anchor | What FHIRPath features should search params use? |
+| [FHIR-53909](../03-meeting-analyses/FHIR-53909.md) | Reference search params with alternate-reference extension | Satellite | How do searches handle Additional Resource references? |
 
 ### Search Behavior Semantics
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-54851 | Review search timezone content | Satellite | "Dragon warning" about timezone handling |
-| FHIR-54853 | Finalize :not modifier behavior | Satellite | :not with OR-joined values produces counterintuitive results |
+| [FHIR-54851](../03-meeting-analyses/FHIR-54851.md) | Review search timezone content | Satellite | "Dragon warning" about timezone handling |
+| [FHIR-54853](../03-meeting-analyses/FHIR-54853.md) | Finalize :not modifier behavior | Satellite | :not with OR-joined values produces counterintuitive results |
 
 ## Suggested Discussion Order
-1. **FHIR-36651** - Complex, long-standing; may need TI coordination
-2. **FHIR-53907** - FHIRPath subset affects many implementations
-3. **FHIR-53909** - Affects Additional Resources pattern
-4. **FHIR-54853** - :not modifier needs clear resolution
-5. **FHIR-54851** - Timezone handling - may defer if no consensus
+1. **[FHIR-36651](../03-meeting-analyses/FHIR-36651.md)** - Complex, long-standing; may need TI coordination
+2. **[FHIR-53907](../03-meeting-analyses/FHIR-53907.md)** - FHIRPath subset affects many implementations
+3. **[FHIR-53909](../03-meeting-analyses/FHIR-53909.md)** - Affects Additional Resources pattern
+4. **[FHIR-54853](../03-meeting-analyses/FHIR-54853.md)** - :not modifier needs clear resolution
+5. **[FHIR-54851](../03-meeting-analyses/FHIR-54851.md)** - Timezone handling - may defer if no consensus
 
 ## Cross-Theme Dependencies
-- **FHIRPath Quarter**: SearchParameter.expression uses FHIRPath (FHIR-53907)
-- **Terminology**: FHIR-36651 relates to %terminology functions design
+- **FHIRPath Quarter**: SearchParameter.expression uses FHIRPath ([FHIR-53907](../03-meeting-analyses/FHIR-53907.md))
+- **Terminology**: [FHIR-36651](../03-meeting-analyses/FHIR-36651.md) relates to %terminology functions design
 - **R6 Normative Readiness**: Search is normative; changes need careful consideration
 
 ## Key Decision Points

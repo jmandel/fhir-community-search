@@ -12,18 +12,18 @@ This group contains 3 issues addressing ActorDefinition and ExampleScenario reso
 ## Issues in This Group
 
 ### All Issues
-**Interdependency:** FHIR-54748 proposes removing ExampleScenario.actor in favor of ActorDefinition references, which affects FHIR-54694's proposal to add OperationDefinition to ExampleScenario.
+**Interdependency:** [FHIR-54748](../03-meeting-analyses/FHIR-54748.md) proposes removing ExampleScenario.actor in favor of ActorDefinition references, which affects [FHIR-54694](../03-meeting-analyses/FHIR-54694.md)'s proposal to add OperationDefinition to ExampleScenario.
 
 | Issue | Summary | Anchor/Satellite | Notes |
 |-------|---------|------------------|-------|
-| FHIR-54748 | ExampleScenario.actor overlaps with ActorDefinition | Anchor | Proposes removing actor backbone, requiring ActorDefinition |
-| FHIR-54694 | Add OperationDefinition reference to ExampleScenario | Satellite | Follows actor.definition pattern for operations |
-| FHIR-54704 | ActorDefinition profile reference | Satellite | Allow ActorDefinition to reference identifying profiles |
+| [FHIR-54748](../03-meeting-analyses/FHIR-54748.md) | ExampleScenario.actor overlaps with ActorDefinition | Anchor | Proposes removing actor backbone, requiring ActorDefinition |
+| [FHIR-54694](../03-meeting-analyses/FHIR-54694.md) | Add OperationDefinition reference to ExampleScenario | Satellite | Follows actor.definition pattern for operations |
+| [FHIR-54704](../03-meeting-analyses/FHIR-54704.md) | ActorDefinition profile reference | Satellite | Allow ActorDefinition to reference identifying profiles |
 
 ## Suggested Discussion Order
-1. **FHIR-54748** - Decide on ExampleScenario.actor structure first
-2. **FHIR-54694** - OperationDefinition reference (depends on overall direction)
-3. **FHIR-54704** - ActorDefinition profile reference (independent)
+1. **[FHIR-54748](../03-meeting-analyses/FHIR-54748.md)** - Decide on ExampleScenario.actor structure first
+2. **[FHIR-54694](../03-meeting-analyses/FHIR-54694.md)** - OperationDefinition reference (depends on overall direction)
+3. **[FHIR-54704](../03-meeting-analyses/FHIR-54704.md)** - ActorDefinition profile reference (independent)
 
 ## Cross-Theme Dependencies
 - **Conformance Quarter**: ActorDefinition relates to conformance resources
