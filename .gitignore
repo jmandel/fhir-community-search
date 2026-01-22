@@ -4,3 +4,5 @@ node_modules/
 *.db-wal
 *.log
 cookies.txt
+*.db
+*.db.zst
